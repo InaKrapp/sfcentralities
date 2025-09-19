@@ -141,23 +141,99 @@ net <- dodgr_streetnet(bbox = c(-71.12, 42.37, -71.10, 42.38), expand = 0.05)
 # Get distances within the streetnet for people who walk on foot.
 graph <- weight_streetnet(net, wt_profile = "foot")
 #> The following highway types are present in data yet lack corresponding weight_profile values: busway, NA, elevator,
+graph1 = graph[graph$component == 1,]
 # Calculate closeness:
-result =  st_closeness_centrality(graph)
-#> [1] "Using data as dodgr graph."
-#> [1] "Returning vertices."
 ```
 
-Alternatively, you can supply a sf object and a mode of transport to the
-‘st_closeness_centrality’-function: This is especially intended to be
-used for cases in which a sf object was obtained using the
-‘dodgr_streetnet’ function or similar cases in which a sf object also
-represents a network.
+\`\`\`{r result_4 = st_closeness_centrality(graph1) result =
+st_closeness_centrality(graph) testdistances \<-
+dodgr::dodgr_distances(graph1)
 
-Calculating the closeness centrality for a large number of points at
-once can be computationally demanding. If the street network is larger
-than a certain size, computations are therefore split up in batches.
-They will take longer to be completed, but this allows such calculations
-also for large networks.
+points_with_all_NAs \<-
+rownames(testdistances)\[rowSums(is.na(testdistances)) ==
+ncol(testdistances) - 1\]
+
+print(points_with_all_NAs) result_5 = result_4 %\>% filter(! id %in%
+points_with_all_NAs) \# I should add that in my code so no Inf values
+get returned. points_with_all_NAs \<-
+rownames(testdistances)\[rowSums(is.na(testdistances))\> 50\]
+
+print(points_with_all_NAs) result_6 = result_4 %\>% filter(! id %in%
+points_with_all_NAs)
+
+## Issue: Not only do some points create NA’s, but also highly skew the value of a few points which are barely reachable at the outside of the net. I can remove those which have above 50 NA’s (as done in creating result_6 above), but would need a better criterion to use this in my function.
+
+# I can not remove all points which have any NA value to any other point since that would remove all points!
+
+# Try removing all points which have more than the average number of NA values.
+
+points_above_avg_na \<-
+rownames(testdistances)\[rowSums(is.na(testdistances)) \>
+mean(rowSums(is.na(testdistances)))\]
+
+print(points_above_avg_na) result_7 = result %\>% filter(! id %in%
+points_above_avg_na) result_8 = result_4 %\>% filter(! id %in%
+points_above_avg_na)
+
+library(dplyr) result_2 = result %\>% filter(! closeness %in% c(Inf))
+%\>% filter(closeness \< 0.006)
+
+result_3 = result %\>% filter(closeness \> 0.006)
+
+ggplot()+geom_sf(data = result_2, aes(color =
+closeness))+scale_color_viridis_c(option = “turbo”)
+
+ggplot()+geom_sf(data = result_6, aes(color =
+closeness))+scale_color_viridis_c(option = “turbo”)
+
+ggplot()+geom_sf(data = result_7, aes(color =
+closeness))+scale_color_viridis_c(option = “turbo”)
+
+ggplot()+geom_sf(data = result_8, aes(color =
+closeness))+scale_color_viridis_c(option = “turbo”)
+
+
+    Alternatively, you can supply a sf object and a mode of transport to the 'st_closeness_centrality'-function:
+    This is especially intended to be used for cases in which a sf object was obtained using the 'dodgr_streetnet' function or similar cases in which a sf object also represents a network.
+
+    Calculating the closeness centrality for a large number of points at once can be computationally demanding. If the street network is larger than a certain size, computations are therefore split up in batches. They will take longer to be completed, but this allows such calculations also for large networks.
+
+    I am also not sure if it makes much sense to have this code. The results are not very intuitive. Maybe I made some error? Why is the closeness of some boundary points so high? A more typical system can be seen in the mid if I only look at points which have relatively close values.
+
+    Maybe the issue is that the network is not unique, it contains smaller networks within which high closeness centralities are easily obtained?
+
+    Check if its results are the same as for st_network_median:
+    ```{r
+    # Create an example graph from a small section of a city
+    # Using a bounding box for Cambridge, MA
+     net <- dodgr_streetnet(bbox = c(-71.12, 42.37, -71.10, 42.38), expand = 0.05)
+     graph <- weight_streetnet(net, wt_profile = "foot")
+
+    # Create a set of random points within that bounding box
+    # set.seed for reproducibility
+     set.seed(123)
+     pts <- st_sample(st_as_sfc(st_bbox(c(xmin=-71.12, ymin=42.37, xmax=-71.10, ymax=42.38))), 100)
+     pts <- st_as_sf(pts)
+     st_crs(pts) <- "EPSG:4326" # Set CRS to WGS84
+     pts$id <- 1:nrow(pts) # Add an ID column
+
+    # Find the most central point
+     central_point2 <- st_closeness_centrality(data = pts, graph = graph)
+     
+     # You can visualize the result
+     # (Requires ggplot2 and ggrepel)
+      library(ggplot2)
+      library(ggrepel)
+     
+      ggplot() +
+        geom_sf(data = dodgr_to_sf(graph), color = "gray80") +
+        geom_sf(data = pts, color = "blue", size = 3) +
+        geom_sf(data = central_point2, size = 5, shape = 18, aes(color = closeness)) +
+        geom_text_repel(data = central_point2, aes(label = "Central Point",
+                                         geometry = x),
+                        stat = "sf_coordinates", nudge_x = 0.001) +
+        theme_void() +
+        labs(title = "Most Central Point (Red) Among a Set of Points (Blue)")
 
 ### st_network_median
 
@@ -171,80 +247,6 @@ distances along the streetnet for the given set of points. For
 computational reasons (even for a relatively small street network,
 considering every possible point would quickly bring a computer to its
 limit) only the points within the set are treated as candidates.
-
-``` r
-library(sfcentralities)
-library(dodgr)
- library(sf)
-
- # 1. Create a street network graph
- graph <- weight_streetnet(hampi, wt_profile = "foot")
-
- # 2. Define a set of points of interest
- # For example, three temples in Hampi
- pts_df <- data.frame(
-   name = c("Virupaksha Temple", "Vijaya Vittala Temple", "Sasivekalu Ganesha"),
-   lat = c(15.3356, 15.3476, 15.3366),
-   lon = c(76.4583, 76.4760, 76.4633)
- )
- pts_sf <- st_as_sf(pts_df, coords = c("lon", "lat"), crs = 4326)
-
- # 3. Find the network median
- median_point <- st_network_median(data = pts_sf, graph = graph)
-#> Calculating all-to-all network distances...
-#> Central point found at index: 2
-
- # 4. View the result
- print(median_point)
-#> Simple feature collection with 1 feature and 2 fields
-#> Geometry type: POINT
-#> Dimension:     XY
-#> Bounding box:  xmin: 76.476 ymin: 15.3476 xmax: 76.476 ymax: 15.3476
-#> Geodetic CRS:  WGS 84
-#>                    name               geometry total_distance
-#> 2 Vijaya Vittala Temple POINT (76.476 15.3476)              0
- #> Simple feature collection with 1 feature and 2 fields
- #> Geometry type: POINT
- #> Dimension:     XY
- #> Bounding box:  xmin: 76.46366 ymin: 15.34107 xmax: 76.46366 ymax: 15.34107
- #> Geodetic CRS:  WGS 84
- #>           id sum_of_distances                    geometry
- #> 1 2925345719         4783.336 POINT (76.46366 15.34107)
-
- # You can plot the result to visualize it
- if (require("ggplot2") && require("ggrepel")) {
-  ggplot() +
-    geom_sf(data = dodgr_to_sf(graph), color = "gray80") +
-   geom_sf(data = pts_sf, color = "blue", size = 3) +
-  geom_sf(data = median_point, color = "red", size = 5, shape = 18) +
-  geom_text_repel(data = median_point, aes(label = "Central Point",
-                                  geometry = geometry),
-                  stat = "sf_coordinates", nudge_x = 0.001) +
-  theme_void() +
-  labs(title = "Most Central Point (Red) Among a Set of Points (Blue)")
- }
-#> Loading required package: ggrepel
-#> Warning: package 'ggrepel' was built under R version 4.3.3
-#> Warning in st_point_on_surface.sfc(sf::st_zm(x)): st_point_on_surface may not
-#> give correct results for longitude/latitude data
-```
-
-<img src="man/figures/README-example-1.png" width="100%" />
-
-``` r
-  graph <- weight_streetnet(hampi, wt_profile = "foot")
-  pts_df <- data.frame(
-    name = c("Virupaksha Temple", "Vijaya Vittala Temple"),
-    lat = c(15.3356, 15.3476),
-    lon = c(76.4583, 76.4760)
-  )
-  pts_sf <- st_as_sf(pts_df, coords = c("lon", "lat"), crs = 4326)
-
-  # Action
-  median_point <- st_network_median(data = pts_sf, graph = graph)
-#> Calculating all-to-all network distances...
-#> Central point found at index: 1
-```
 
 # Change me please.
 
@@ -290,6 +292,7 @@ the warning come from?
  # (Requires ggplot2 and ggrepel)
   library(ggplot2)
   library(ggrepel)
+#> Warning: package 'ggrepel' was built under R version 4.3.3
  
   ggplot() +
     geom_sf(data = dodgr_to_sf(graph), color = "gray80") +
@@ -304,7 +307,53 @@ the warning come from?
 #> give correct results for longitude/latitude data
 ```
 
-<img src="man/figures/README-unnamed-chunk-7-1.png" width="100%" />
+<img src="man/figures/README-unnamed-chunk-6-1.png" width="100%" />
+
+Does it have the same issue where boundary points are found as
+particularily central?
+
+``` r
+net <- dodgr_streetnet(bbox = c(-71.12, 42.37, -71.10, 42.38), expand = 0.05)
+# Get distances within the streetnet for people who walk on foot.
+graph <- weight_streetnet(net, wt_profile = "foot")
+#> The following highway types are present in data yet lack corresponding weight_profile values: busway, NA, elevator,
+graph1 = graph[graph$component == 1,]
+v <- dodgr_vertices (graph1)
+v2 = st_as_sf(v,coords = c("x", "y"))
+st_crs(v2) = "EPSG:4326"
+
+test = st_network_median(v2, graph = graph1)
+#> Calculating all-to-all network distances...
+#> Central point found at index: 9186
+
+
+ ggplot() +
+    geom_sf(data = dodgr_to_sf(graph1), color = "gray80") +
+    geom_sf(data = v2, color = "blue", size = 3) +
+    geom_sf(data = test, color = "red", size = 5, shape = 18)
+```
+
+<img src="man/figures/README-unnamed-chunk-7-1.png" width="100%" /> Yes,
+the issue occurs. So I need to create both functions more stable against
+issues where, even though only the largest component of the graph is
+analyzed, ‘side’ points which can’t reach some other points are
+calculated to have high closeness because only the distances to the few
+points they can reach are calculated.
+
+I think it may be reasonable to fortify st_network_distance against this
+issue and use it as basis for st_network_median as well as
+st_network_centrality. Or is it? I’ll have to think about this. Maybe,
+st_network_centrality tries to do too many things at once. Maybe I
+should separate more strictly: One for dodgr graphs, one for sf objects?
+Or only keep st_network_median and use vertices from a street net as
+input? I could do that, but it doesn’t have the optimized
+large_batch_logic. I think the best way may be to act as follows: 1.
+Remove option to add aditional sf data to st_closeness_centrality -
+st_closeness_centrality should only work on a network/dodgr_graph. 2.
+Modify st_network_median so it returns the entire sf object with
+closeness values, not only a single value/median. Then, it can replace
+the sf data from st_closeness_centrality entirely. 3. Ensure both
+against the borderline values error.
 
 The test graph is not created correctly yet.
 
@@ -418,42 +467,22 @@ pts <- sf::st_sfc(sf::st_point(c(76.47398, 15.330)), sf::st_point(c(76.47398, 15
     road networks, the distance from point A to point B can be different
     from the distance from point B to point A, f.eg. because of one-way
     streets or construction sites.
-
-``` r
-pts <- sf::st_sfc(sf::st_point(c(76.47398, 15.330)), sf::st_point(c(76.47398, 15.150)))
-  pts <- sf::st_as_sf(pts)
-  sf::st_crs(pts) <- "EPSG:4326"
-  pts2 <- pts[1, ]
-  # Calculate distance
-  result <- st_network_distance(data = pts, to = pts2, placename = "hampi", transport_mode = "bicycle")
-#> The following highway types are present in data yet lack corresponding weight_profile values: bus_stop,
-```
-
-The distances are appended as new columns to the first sf object. They
-contain the distances to the points of the second object in descending
-order: ‘distance_to_1’ is the distance to the point of the first row in
-the second sf object, ‘distance_to_2’ is the distance to the point of
-the second row and so on. For easier oversight, it may make sense to
-supply names. For example, if the user wants to calculate the distance
-to two points named ‘city center’ and ‘train_station’, they can name the
-calculated distances after them using the ‘index’ parameter of the
-function:
-
-``` r
-pts <- sf::st_sfc(sf::st_point(c(76.47398, 15.330)), sf::st_point(c(76.47398, 15.150)))
-  pts <- sf::st_as_sf(pts)
-  sf::st_crs(pts) <- "EPSG:4326"
-  pts$name = c("city center", "train station")
-  # Calculate distance
-  result <- st_network_distance(data = pts, to = pts, placename = "hampi", transport_mode = "bicycle", index = "name")
-#> The following highway types are present in data yet lack corresponding weight_profile values: bus_stop,
-```
-
-A function like this supplies the name of an area (‘placename’) to
-Openstreetmap and takes the street network from there. This approach
-requires a working internet connection, and especially for distances
-between places which are far apart (f.eg. in different cities), it may
-fail when it attempts to download too large street networks.
+    `{r pts <- sf::st_sfc(sf::st_point(c(76.47398, 15.330)), sf::st_point(c(76.47398, 15.150)))   pts <- sf::st_as_sf(pts)   sf::st_crs(pts) <- "EPSG:4326"   pts2 <- pts[1, ]   # Calculate distance   result <- st_network_distance(data = pts, to = pts2, placename = "hampi", transport_mode = "bicycle")`
+    The distances are appended as new columns to the first sf object.
+    They contain the distances to the points of the second object in
+    descending order: ‘distance_to_1’ is the distance to the point of
+    the first row in the second sf object, ‘distance_to_2’ is the
+    distance to the point of the second row and so on. For easier
+    oversight, it may make sense to supply names. For example, if the
+    user wants to calculate the distance to two points named ‘city
+    center’ and ‘train_station’, they can name the calculated distances
+    after them using the ‘index’ parameter of the function:
+    `{r pts <- sf::st_sfc(sf::st_point(c(76.47398, 15.330)), sf::st_point(c(76.47398, 15.150)))   pts <- sf::st_as_sf(pts)   sf::st_crs(pts) <- "EPSG:4326"   pts$name = c("city center", "train station")   # Calculate distance   result <- st_network_distance(data = pts, to = pts, placename = "hampi", transport_mode = "bicycle", index = "name")`
+    A function like this supplies the name of an area (‘placename’) to
+    Openstreetmap and takes the street network from there. This approach
+    requires a working internet connection, and especially for distances
+    between places which are far apart (f.eg. in different cities), it
+    may fail when it attempts to download too large street networks.
 
 Therefore, it may be more efficient for the user to download the street
 network and give it directly into the function. This allows, for

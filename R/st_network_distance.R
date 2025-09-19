@@ -47,10 +47,10 @@ st_network_distance <- function(data, to_data = NULL, index = NULL, placename = 
   # Add check that placename and transport_mode are added?
   if (is.null(graph)) {
     if (is.null(placename)) {
-      stop("A placename must be supplied.")
+      stop("Please supply a placename as: placename = ''")
     }
     if (is.null(transport_mode)) {
-      stop("A mode of transport must be supplied.")
+      stop("Please supply a mode of transport as: transport_mode = ''")
     }
     # If graph is NULL, get the graph from Openstreetmap
     bb <- osmdata::getbb(place_name = placename)

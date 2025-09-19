@@ -25,7 +25,7 @@
 #' sf::st_geometry(pts) <- "geom"
 #' pts$name = c("city center", "train station")
 #' pts <- st_closeness_centrality(pts, graph = graph)
-st_closeness_centrality <- function(data, transport_mode = NULL, placename = NULL,graph = NULL, batched_if = 100000, normalized = TRUE) {
+st_closeness_centrality <- function(graph = NULL, transport_mode = NULL, placename = NULL, batched_if = 100000, normalized = TRUE) {
   # What exactly should be used as input? A graph?
   # Or even a sf object/sc object, I create the graph here?
   # May make it easier - but only special sf objects can be used to
@@ -61,22 +61,11 @@ st_closeness_centrality <- function(data, transport_mode = NULL, placename = NUL
   sf::st_crs(vertices) <- "EPSG:4326"
   print("Returning vertices.")
   return(vertices)}
-
-    else if (inherits(data, "sf")) {
-      # Check if all geometries are POINT
-      if (!all(sf::st_geometry_type(data) == "POINT")) {
-        stop("sf object does not contain only POINT objects")
-      }
-      # data is a sf object, adjust crs:
-      # The crs has to be "EPSG:4326", else transform it for distance calculations:
-      if (sf::st_crs(data)$input != "EPSG:4326") {
-        old_crs <- sf::st_crs(data)$input
-        data <- sf::st_transform(data, crs = "EPSG:4326")}}
       else stop("Input must be a sf or dodgr_streetnet object")
 
     # If the data given is a dodgr graph, use it as graph:
 
-  # If no graph is given (neither as 'data', nor as 'graph')
+  # If no graph is given
   if (is.null(graph)){
     if (is.null(transport_mode)) {
       stop("A placename and a mode of transport must be supplied if no graph is supplied to the function.")
@@ -101,10 +90,13 @@ st_closeness_centrality <- function(data, transport_mode = NULL, placename = NUL
   to <- sf::st_coordinates(data)
   # Calculate distances:
   testdistances <- dodgr::dodgr_dists(graph = graph, from = from, to = to)
+  # There may be cases where points are not reachable from all other points.
+  # Delete them so they are never returned as most central points.
   # In case a point is not reachable from another point, set distance to NA:
-  testdistances[testdistances == 0] <- NA
+  #testdistances[testdistances == 0] <- NA
+  # Or should I remove this?
   # The exception is the distance of a point to itself, set it to 0:
-  diag(testdistances) <- 0
+  #diag(testdistances) <- 0
   # Calculate closeness centrality from distances:
   if (normalized == TRUE) {
     closeness <- 1 / rowMeans(testdistances, na.rm = T)
@@ -162,12 +154,11 @@ st_closeness_centrality_largedata <- function(graph, normalized, chunk_size = 10
     current_nodes <- nodes[i:end, ]
     # This takes 1000 chunks at once.
     # print(i)
-
     # 'from' returns 1 row for each from-entry
     # I work along the rows: I use rowSums/rowMeans.
     testdistances <- dodgr::dodgr_distances(graph, from = current_nodes)
     # In case a point is not reachable from another point, set distance to NA:
-    testdistances[testdistances == 0] <- NA
+    #testdistances[testdistances == 0] <- NA
     # The exception is the distance of a point to itself, set it to 0:
     diag(testdistances) <- 0
     if (normalized == TRUE) {
