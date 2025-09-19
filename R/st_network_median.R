@@ -60,7 +60,7 @@
 #' #   theme_void() +
 #' #   labs(title = "Most Central Point (Red) Among a Set of Points (Blue)")
 
-st_network_median <- function(data, ...) {
+st_network_median <- function(data, return_all = TRUE, ...) {
   # --- 1. Input Validation ---
   if (!inherits(data, "sf")) {
     stop("Input 'data' must be a sf object.")

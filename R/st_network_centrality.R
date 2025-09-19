@@ -39,15 +39,16 @@ st_closeness_centrality <- function(graph = NULL, transport_mode = NULL, placena
   # Ensure input is a dodgr graph or sf:
   if (inherits(data, "dodgr_streetnet")) {
     print("Using data as dodgr graph.")
-    graph <- data
+  # Take only first component:
+  graph = graph[graph$component == 1,]
   if (nrow(graph) > batched_if) { # Calculate distances piecewise
     closeness <- st_closeness_centrality_largedata(graph, normalized)
   } else { # Calculate distances all at once
     testdistances <- dodgr::dodgr_distances(graph)
-    # In case a point is not reachable from another point, set distance to NA:
-    testdistances[testdistances == 0] <- NA
-    # The exception is the distance of a point to itself, set it to 0:
-    diag(testdistances) <- 0
+    # In case a point is not reachable from another point, remove it
+    points_above_avg_na <- rownames(testdistances)[rowSums(is.na(testdistances)) > mean(rowSums(is.na(testdistances)))]
+    print(points_above_avg_na)
+    # Remove these points from the result
     if (normalized == TRUE) {
       closeness <- 1 / rowMeans(testdistances, na.rm = T)
     } else {
@@ -59,6 +60,7 @@ st_closeness_centrality <- function(graph = NULL, transport_mode = NULL, placena
   vertices <- cbind(vertices, closeness)
   vertices <- sf::st_as_sf(vertices, coords = c("x", "y"))
   sf::st_crs(vertices) <- "EPSG:4326"
+  vertices = vertices %>% filter(! id %in% points_with_all_NAs)
   print("Returning vertices.")
   return(vertices)}
       else stop("Input must be a sf or dodgr_streetnet object")
