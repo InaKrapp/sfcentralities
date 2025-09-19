@@ -65,7 +65,7 @@ the function:
 ``` r
 # Create an index that is 1 for the first three points and 2 for the fourth point:
 pts$index <- 1
-pts[4,]$index = 2
+pts[4, ]$index <- 2
 
 # Calculate the geometric medians for each index value separately
 geometric_medians_by_group <- st_geo_median(pts, "index")
@@ -84,7 +84,11 @@ Since the result is a sf object, it can be plotted easily with ggplot2:
 library(ggplot2)
 #> Warning: package 'ggplot2' was built under R version 4.3.3
 
-ggplot()+geom_sf(data =pts, color = "blue", size = 5 )+geom_sf(data = geometric_medians_by_group, color = "yellow")+ geom_sf(data = single_geometric_median, color = "red")+theme_minimal()
+ggplot() +
+  geom_sf(data = pts, color = "blue", size = 5) +
+  geom_sf(data = geometric_medians_by_group, color = "yellow") +
+  geom_sf(data = single_geometric_median, color = "red") +
+  theme_minimal()
 ```
 
 <img src="man/figures/README-unnamed-chunk-4-1.png" width="100%" />
@@ -130,7 +134,7 @@ library(dodgr)
 graph <- weight_streetnet(dodgr::hampi, wt_profile = "foot")
 
 # Calculate closeness:
-result = st_closeness_centrality(graph)
+result <- st_closeness_centrality(graph)
 #> Input 'data' is a dodgr_streetnet graph. Calculating closeness for all its vertices.
 #> Warning in max(input_graph$component_rank): no non-missing arguments to max;
 #> returning -Inf
@@ -141,7 +145,8 @@ result = st_closeness_centrality(graph)
 #> Returning graph vertices with calculated closeness.
 
 # Depict results:
-ggplot()+geom_sf(data = result, aes(color = closeness))
+ggplot() +
+  geom_sf(data = result, aes(color = closeness))
 ```
 
 <img src="man/figures/README-unnamed-chunk-5-1.png" width="100%" />
@@ -152,10 +157,11 @@ download the corresponding streetnet from OpenStreetMap.
 
 ``` r
 # Calculate closeness:
-result = st_closeness_centrality(placename = "hampi", transport_mode = "foot")
+result <- st_closeness_centrality(placename = "hampi", transport_mode = "foot")
 
 # Depict results:
-ggplot()+geom_sf(data = result, aes(color = closeness))
+ggplot() +
+  geom_sf(data = result, aes(color = closeness))
 ```
 
 Instead of finding a central point within a street network, one may also
@@ -185,7 +191,9 @@ pts_centrality_with_graph <- st_closeness_centrality(pts, graph = graph)
 #> Distance calculation finished.
 
 # Depict results:
-ggplot()+geom_sf(data = dodgr::hampi, color = "white")+geom_sf(data = pts_centrality_with_graph, aes(color = closeness))
+ggplot() +
+  geom_sf(data = dodgr::hampi, color = "white") +
+  geom_sf(data = pts_centrality_with_graph, aes(color = closeness))
 ```
 
 <img src="man/figures/README-unnamed-chunk-7-1.png" width="100%" />
@@ -207,7 +215,7 @@ parameter ‘batched_if’.
 graph <- weight_streetnet(dodgr::hampi, wt_profile = "foot")
 
 # Calculate closeness: Use batched calculation even for small graphs.
-result = st_closeness_centrality(graph, batched_if = 50)
+result <- st_closeness_centrality(graph, batched_if = 50)
 #> Input 'data' is a dodgr_streetnet graph. Calculating closeness for all its vertices.
 #> Warning in max(input_graph$component_rank): no non-missing arguments to max;
 #> returning -Inf
@@ -266,7 +274,8 @@ result = st_closeness_centrality(graph, batched_if = 50)
 #> Returning graph vertices with calculated closeness.
 
 # Depict results:
-ggplot()+geom_sf(data = result, aes(color = closeness))
+ggplot() +
+  geom_sf(data = result, aes(color = closeness))
 ```
 
 <img src="man/figures/README-unnamed-chunk-8-1.png" width="100%" />

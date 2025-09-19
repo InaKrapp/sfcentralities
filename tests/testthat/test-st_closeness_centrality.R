@@ -6,7 +6,7 @@ graph_hampi <- dodgr::weight_streetnet(dodgr::hampi, wt_profile = "bicycle")
 # Sample sf points for testing
 pts <- sf::st_sfc(
   sf::st_point(c(76.47398, 15.330)), # Central point
-  sf::st_point(c(76.4599, 15.345))   # Peripheral point
+  sf::st_point(c(76.4599, 15.345)) # Peripheral point
 )
 pts <- sf::st_as_sf(pts, crs = "EPSG:4326")
 pts$name <- c("central", "peripheral")

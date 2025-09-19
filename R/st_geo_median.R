@@ -68,7 +68,6 @@ st_geo_median_inner <- function(P, tol = 1e-07, maxiter = 200) {
 #' test <- st_geo_median(pts, "index")
 #' test <- st_geo_median(pts)
 st_geo_median <- function(data, group = NULL) {
-
   if (!inherits(data, "sf")) {
     stop("Input must be an sf object")
   }

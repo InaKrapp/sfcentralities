@@ -48,7 +48,8 @@
 #' print(pts_centrality_with_graph)
 #'
 #' # Example 3: Find centrality values for specific points, letting the function build the graph
-#' \dontrun{ # This example requires internet access to download OSM data
+#' \dontrun{
+#' # This example requires internet access to download OSM data
 #' pts <- sf::st_sfc(sf::st_point(c(76.47398, 15.330)), sf::st_point(c(76.47398, 15.150)))
 #' pts <- sf::st_as_sf(pts_no_id)
 #' sf::st_crs(pts) <- "EPSG:4326"
@@ -61,11 +62,10 @@
 #' print(pts_centrality_build_graph)
 #' }
 st_closeness_centrality <- function(data = NULL, graph = NULL, placename = NULL, transport_mode = NULL, batched_if = 100000, normalized = TRUE) {
-
   # --- Input Validation and Graph Preparation ---
 
   # Case 1: 'data' is already a dodgr_streetnet graph
-  if (inherits(data, "dodgr_streetnet") ) {
+  if (inherits(data, "dodgr_streetnet")) {
     message("Input 'data' is a dodgr_streetnet graph. Calculating closeness for all its vertices.")
     input_graph <- data
     input_is_sf_points <- FALSE # Flag to indicate original input type
@@ -139,8 +139,10 @@ st_closeness_centrality <- function(data = NULL, graph = NULL, placename = NULL,
     input_graph <- dodgr::dodgr_components(input_graph)
   }
   input_graph <- input_graph[input_graph$component == 1, ]
-  message(paste0("Using the largest connected component of the graph (containing ",
-                 max(input_graph$component_rank), " vertices)."))
+  message(paste0(
+    "Using the largest connected component of the graph (containing ",
+    max(input_graph$component_rank), " vertices)."
+  ))
 
   # --- Closeness Centrality Calculation ---
 
@@ -175,7 +177,6 @@ st_closeness_centrality <- function(data = NULL, graph = NULL, placename = NULL,
     )
     closeness_values <- largedata_result$closeness_values
     points_above_avg_na <- largedata_result$nodes_to_filter_ids # Store filter IDs
-
   } else {
     message(paste0("Number of elements (", n_elements, ") is within 'batched_if' (", batched_if, "). Calculating all-pairs distances."))
 
@@ -282,7 +283,8 @@ st_closeness_centrality <- function(data = NULL, graph = NULL, placename = NULL,
 #'
 #' # Example 1: Calculate closeness for all graph vertices using batch processing
 #' closeness_values_batched_graph <- st_closeness_centrality_largedata(graph_hampi,
-#'  normalized = TRUE, chunk_size = 50)
+#'   normalized = TRUE, chunk_size = 50
+#' )
 #' head(closeness_values_batched_graph$closeness_values)
 #'
 #' # Example 2: Calculate closeness from specific points to graph vertices using batch processing
@@ -301,7 +303,6 @@ st_closeness_centrality <- function(data = NULL, graph = NULL, placename = NULL,
 #' )
 #' head(closeness_values_batched_points$closeness_values)
 st_closeness_centrality_largedata <- function(graph, from_points = NULL, normalized, chunk_size = 1000) {
-
   # Determine whether we are processing graph vertices or specific 'from_points'
   if (!is.null(from_points)) {
     # If from_points is provided, we are calculating distances FROM these points.

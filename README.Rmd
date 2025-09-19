@@ -58,13 +58,10 @@ A geometric median can be calculated for an entire dataset, or for subgroups wit
 ```{r}
 # Create an index that is 1 for the first three points and 2 for the fourth point:
 pts$index <- 1
-pts[4,]$index = 2
+pts[4, ]$index <- 2
 
 # Calculate the geometric medians for each index value separately
 geometric_medians_by_group <- st_geo_median(pts, "index")
-
-## Look at result:
-
 ```
 The returned object is a sf object which contains the geometric median as geometry column as well as further information like a column 'number_of_points', the user can check how many points were used to calculate the respective median, and 'distance', which contains the sum of euclidean distances between the points and the geometric median.
 
@@ -74,7 +71,11 @@ Since the result is a sf object, it can be plotted easily with ggplot2:
 ## Plot the results:
 library(ggplot2)
 
-ggplot()+geom_sf(data =pts, color = "blue", size = 5 )+geom_sf(data = geometric_medians_by_group, color = "yellow")+ geom_sf(data = single_geometric_median, color = "red")+theme_minimal()
+ggplot() +
+  geom_sf(data = pts, color = "blue", size = 5) +
+  geom_sf(data = geometric_medians_by_group, color = "yellow") +
+  geom_sf(data = single_geometric_median, color = "red") +
+  theme_minimal()
 ```
 
 Note that there are two groups in the example data: One only contains the point in the upper right, which is therefore also returned as the geometric median of that group.
@@ -99,20 +100,21 @@ library(dodgr)
 graph <- weight_streetnet(dodgr::hampi, wt_profile = "foot")
 
 # Calculate closeness:
-result = st_closeness_centrality(graph)
+result <- st_closeness_centrality(graph)
 
 # Depict results:
-ggplot()+geom_sf(data = result, aes(color = closeness))
+ggplot() +
+  geom_sf(data = result, aes(color = closeness))
 ```
 
 Alternatively, you can supply a placename and a mode of transport to the 'st_closeness_centrality'-function. The function will then try to download the corresponding streetnet from OpenStreetMap.
 ```{r, eval=F, echo=T}
 # Calculate closeness:
-result = st_closeness_centrality(placename = "hampi", transport_mode = "foot")
+result <- st_closeness_centrality(placename = "hampi", transport_mode = "foot")
 
 # Depict results:
-ggplot()+geom_sf(data = result, aes(color = closeness))
-
+ggplot() +
+  geom_sf(data = result, aes(color = closeness))
 ```
 
 Instead of finding a central point within a street network, one may also wish to calculate closeness values for a certain number of points within a city. In this case, the points for which closeness centrality should be calculated can be supplied to the function as sf object:
@@ -131,7 +133,9 @@ sf::st_crs(pts) <- "EPSG:4326"
 pts_centrality_with_graph <- st_closeness_centrality(pts, graph = graph)
 
 # Depict results:
-ggplot()+geom_sf(data = dodgr::hampi, color = "white")+geom_sf(data = pts_centrality_with_graph, aes(color = closeness))
+ggplot() +
+  geom_sf(data = dodgr::hampi, color = "white") +
+  geom_sf(data = pts_centrality_with_graph, aes(color = closeness))
 ```
 
 Calculating the closeness centrality for a large number of points at once can be computationally demanding. If the street network is larger than a certain size or the number of points for which the closeness should be calculated is very large, computations are therefore split up in batches. They will take longer to be completed, but it allows such calculations also for large networks because the data is not stored in memory at once.
@@ -143,10 +147,11 @@ By default, batched processing is used if the closeness centrality for more than
 graph <- weight_streetnet(dodgr::hampi, wt_profile = "foot")
 
 # Calculate closeness: Use batched calculation even for small graphs.
-result = st_closeness_centrality(graph, batched_if = 50)
+result <- st_closeness_centrality(graph, batched_if = 50)
 
 # Depict results:
-ggplot()+geom_sf(data = result, aes(color = closeness))
+ggplot() +
+  geom_sf(data = result, aes(color = closeness))
 ```
 
 
