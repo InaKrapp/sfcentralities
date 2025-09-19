@@ -22,3 +22,5 @@ Imports:
     geodist,
     osmdata,
     sf
+URL: https://github.com/InaKrapp/sfcentralities
+BugReports: https://github.com/InaKrapp/sfcentralities/issues
