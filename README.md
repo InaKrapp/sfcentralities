@@ -69,8 +69,6 @@ pts[4,]$index = 2
 
 # Calculate the geometric medians for each index value separately
 geometric_medians_by_group <- st_geo_median(pts, "index")
-
-## Look at result:
 ```
 
 The returned object is a sf object which contains the geometric median
