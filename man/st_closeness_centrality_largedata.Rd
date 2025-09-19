@@ -4,34 +4,67 @@
 \alias{st_closeness_centrality_largedata}
 \title{A function to find closeness centrality in large dodgr graphs using batch processing}
 \usage{
-st_closeness_centrality_largedata(graph, normalized, chunk_size = 1000)
+st_closeness_centrality_largedata(
+  graph,
+  from_points = NULL,
+  normalized,
+  chunk_size = 1000
+)
 }
 \arguments{
 \item{graph}{A `dodgr_streetnet` graph.}
 
+\item{from_points}{An optional `data.frame` of points (with `x`, `y`, `id` columns)
+from which distances should be calculated. If `NULL` (default), distances are
+calculated for all vertices of `graph`. The `id` column should contain unique
+identifiers, typically row numbers as character strings if `from_points` originated
+from an `sf` object in `st_closeness_centrality`.}
+
 \item{normalized}{Logical. If `TRUE`, normalized closeness centrality is computed
 (mean of distances). If `FALSE`, unnormalized closeness is computed (sum of distances).}
 
-\item{chunk_size}{The number of vertices for which distances should be calculated
+\item{chunk_size}{The number of vertices/points for which distances should be calculated
 at once in each iteration. Defaults to `1000`. This directly controls memory usage.}
 }
 \value{
-A numeric vector of closeness values, one for each vertex in the graph.
+A list containing:
+  - `closeness_values`: A numeric vector of closeness values, one for each
+    vertex/point from which distances were calculated. These values are named
+    with the corresponding IDs (row numbers or graph vertex IDs).
+  - `nodes_to_filter_ids`: A character vector of node/point IDs that should be filtered
+    out because they are less reachable than average.
 }
 \description{
 This helper function calculates closeness centrality for each vertex in a large
 `dodgr` graph by processing distances in batches. This approach reduces memory
 consumption compared to calculating all-pairs distances at once, which can
-result in a very large distance matrix (n^2).
+result in a very large distance matrix (n^2). It can also calculate distances
+from a large set of specified points (`from_points`) to all graph vertices in batches.
 }
 \examples{
 library(dodgr)
 library(sf)
-# Create a sample graph (using hampi, which is small, but demonstrates the function)
+
 graph_hampi <- dodgr::weight_streetnet(hampi, wt_profile = "foot")
 
-# Calculate closeness using the batch processing function
-closeness_values_batched <- st_closeness_centrality_largedata(graph_hampi,
+# Example 1: Calculate closeness for all graph vertices using batch processing
+closeness_values_batched_graph <- st_closeness_centrality_largedata(graph_hampi,
  normalized = TRUE, chunk_size = 50)
-head(closeness_values_batched)
+head(closeness_values_batched_graph$closeness_values)
+
+# Example 2: Calculate closeness from specific points to graph vertices using batch processing
+pts <- sf::st_sfc(sf::st_point(c(76.47398, 15.330)), sf::st_point(c(76.47398, 15.150)))
+pts <- sf::st_as_sf(pts)
+sf::st_crs(pts) <- "EPSG:4326"
+pts_df <- as.data.frame(sf::st_coordinates(pts))
+names(pts_df) <- c("x", "y")
+pts_df$id <- as.character(seq_len(nrow(pts_df))) # Use row numbers as IDs
+
+closeness_values_batched_points <- st_closeness_centrality_largedata(
+  graph = graph_hampi,
+  from_points = pts_df,
+  normalized = TRUE,
+  chunk_size = 1 # Small chunk_size for example
+)
+head(closeness_values_batched_points$closeness_values)
 }

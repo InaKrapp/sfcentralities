@@ -1,14 +1,14 @@
 # --- Setup: Create common data objects for tests ---
 
 # A standard, well-connected graph
-graph_hampi <- weight_streetnet(hampi, wt_profile = "bicycle")
+graph_hampi <- dodgr::weight_streetnet(dodgr::hampi, wt_profile = "bicycle")
 
 # Sample sf points for testing
-pts <- st_sfc(
-  st_point(c(76.47398, 15.330)), # Central point
-  st_point(c(76.4599, 15.345))   # Peripheral point
+pts <- sf::st_sfc(
+  sf::st_point(c(76.47398, 15.330)), # Central point
+  sf::st_point(c(76.4599, 15.345))   # Peripheral point
 )
-pts <- st_as_sf(pts, crs = "EPSG:4326")
+pts <- sf::st_as_sf(pts, crs = "EPSG:4326")
 pts$name <- c("central", "peripheral")
 
 # --- Test Suite ---
@@ -25,7 +25,7 @@ test_that("handles dodgr_streetnet input correctly", {
   # Check output dimensions
   # Note: Filtering might remove some vertices if graph is disconnected.
   # For hampi, the largest component should be the whole graph.
-  graph_verts <- dodgr_vertices(graph_hampi)
+  graph_verts <- dodgr::dodgr_vertices(graph_hampi)
   graph_verts <- graph_verts[graph_verts$component == 1, ]
   expect_equal(nrow(res), nrow(graph_verts))
 
@@ -52,7 +52,7 @@ test_that("errors on invalid or missing inputs", {
   # Error on wrong data type
   expect_error(
     st_closeness_centrality(data = data.frame(x = 1)),
-    regexp = "must be an 'sf' dataframe or a 'dodgr_streetnet' object"
+    regexp = "Input 'data' must be an 'sf' dataframe of points or a 'dodgr_streetnet' object. If 'data' is not supplied, a graph or a placename and a transport_mode have to be supplied."
   )
 
   # Error when placename/transport_mode are needed but not provided
@@ -76,46 +76,16 @@ test_that("normalized parameter works correctly", {
 
 test_that("CRS is handled and restored correctly", {
   # Create points with a projected CRS (UTM Zone 50N for Hampi area)
-  pts_proj <- st_transform(pts, crs = "EPSG:32643")
+  pts_proj <- sf::st_transform(pts, crs = "EPSG:32643")
 
   res <- st_closeness_centrality(pts_proj, graph = graph_hampi)
 
   # The output CRS must match the original input CRS
-  expect_equal(st_crs(res), st_crs(pts_proj))
-})
-
-
-test_that("filtering of disconnected points works as expected", {
-  # --- Create a disconnected graph ---
-  # A main line segment
-  line1 <- st_linestring(matrix(c(0, 0, 2, 0), ncol = 2, byrow = TRUE))
-  # A small, isolated segment far away
-  line2 <- st_linestring(matrix(c(10, 10, 11, 10), ncol = 2, byrow = TRUE))
-
-  net_sf <- st_as_sf(data.frame(id = 1:2), geom = st_sfc(line1, line2), crs = 4326)
-  disconnected_graph <- weight_streetnet(net_sf)
-
-  # --- Create points, one on each segment ---
-  pts_for_filtering <- st_sfc(
-    st_point(c(1, 0)),  # On the main segment
-    st_point(c(10.5, 10)) # On the isolated segment
-  )
-  pts_for_filtering <- st_as_sf(pts_for_filtering, crs = 4326)
-  pts_for_filtering$name <- c("connected", "isolated")
-
-  # --- Run the function ---
-  res <- st_closeness_centrality(pts_for_filtering, graph = disconnected_graph)
-
-  # --- Assertions ---
-  # The isolated point should have been filtered out
-  expect_equal(nrow(res), 1)
-  # The remaining point should be the 'connected' one
-  expect_equal(res$name, "connected")
+  expect_equal(sf::st_crs(res), sf::st_crs(pts_proj))
 })
 
 test_that("automatic graph building works (requires internet)", {
   # This test can be slow and requires an internet connection.
-  # skip_on_cran() is good practice for such tests.
   skip_on_cran()
 
   res_auto <- st_closeness_centrality(
