@@ -49,7 +49,8 @@ graph_hampi <- dodgr::weight_streetnet(hampi, wt_profile = "foot")
 
 # Example 1: Calculate closeness for all graph vertices using batch processing
 closeness_values_batched_graph <- st_closeness_centrality_largedata(graph_hampi,
- normalized = TRUE, chunk_size = 50)
+  normalized = TRUE, chunk_size = 50
+)
 head(closeness_values_batched_graph$closeness_values)
 
 # Example 2: Calculate closeness from specific points to graph vertices using batch processing

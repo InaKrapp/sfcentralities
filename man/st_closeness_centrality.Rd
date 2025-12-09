@@ -68,7 +68,8 @@ pts_centrality_with_graph <- st_closeness_centrality(pts, graph = graph_hampi)
 print(pts_centrality_with_graph)
 
 # Example 3: Find centrality values for specific points, letting the function build the graph
-\dontrun{ # This example requires internet access to download OSM data
+\dontrun{
+# This example requires internet access to download OSM data
 pts <- sf::st_sfc(sf::st_point(c(76.47398, 15.330)), sf::st_point(c(76.47398, 15.150)))
 pts <- sf::st_as_sf(pts_no_id)
 sf::st_crs(pts) <- "EPSG:4326"
