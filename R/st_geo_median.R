@@ -99,18 +99,18 @@ st_geo_median <- function(data, group = NULL) {
       geomedian_list <- geo_median_inner(coords)
 
     # Initialize an empty dataframe.
-    df <- data.frame(matrix(NA, ncol = 0, nrow = 1))
+    result_sf <- data.frame(matrix(NA, ncol = 0, nrow = 1))
 
     # Put elements of list in dataframe
-    df$x <- geomedian_list$p[["X"]]
-    df$y <- geomedian_list$p[["Y"]]
-    df$distance <- geomedian_list$d
-    df$reltol <- geomedian_list$reltol
-    df$niter <- geomedian_list$niter
-    df$number_of_points <- nrow(data)
+    result_sf$x <- geomedian_list$p[["X"]]
+    result_sf$y <- geomedian_list$p[["Y"]]
+    result_sf$distance <- geomedian_list$d
+    result_sf$reltol <- geomedian_list$reltol
+    result_sf$niter <- geomedian_list$niter
+    result_sf$number_of_points <- nrow(data)
 
     # Make a sf out of the dataframe
-    df <- sf::st_as_sf(df, coords = c("x", "y"))
+    result_sf <- sf::st_as_sf(result_sf, coords = c("x", "y"))
   } else {
     # Apply geometric median function to subgroups in dataset
     groupcolumn <- data[, group, drop = FALSE]
@@ -128,22 +128,22 @@ st_geo_median <- function(data, group = NULL) {
     }
     names(geomedian_list) <- groupvector
 
-    df <- data.frame(
+    result_sf <- data.frame(
       name = names(geomedian_list),
       stringsAsFactors = FALSE
     )
     # Turn list of geomedians into a sf object
     # Add a control that the list is not empty. Else, return warning.
-    df$distance <- sapply(geomedian_list, function(x) x$d)
-    df$reltol <- sapply(geomedian_list, function(x) x$reltol)
-    df$niter <- sapply(geomedian_list, function(x) x$niter)
-    df$number_of_points <- sapply(geomedian_list, function(x) x$pointnumber)
+    result_sf$distance <- sapply(geomedian_list, function(x) x$d)
+    result_sf$reltol <- sapply(geomedian_list, function(x) x$reltol)
+    result_sf$niter <- sapply(geomedian_list, function(x) x$niter)
+    result_sf$number_of_points <- sapply(geomedian_list, function(x) x$pointnumber)
 
-    df$x <- sapply(geomedian_list, function(x) x$p[1])
-    df$y <- sapply(geomedian_list, function(x) x$p[2])
+    result_sf$x <- sapply(geomedian_list, function(x) x$p[1])
+    result_sf$y <- sapply(geomedian_list, function(x) x$p[2])
 
-    df <- sf::st_as_sf(df, coords = c("x", "y"))
+    result_sf <- sf::st_as_sf(result_sf, coords = c("x", "y"))
   }
-  sf::st_crs(df) <- sf::st_crs(data)
-  return(df)
+  sf::st_crs(result_sf) <- sf::st_crs(data)
+  return(result_sf)
 }
