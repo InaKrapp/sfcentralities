@@ -21,7 +21,19 @@ geo_median_inner <- function(P, tol = 1e-07, maxiter = 200) {
   n <- ncol(P)
 
   p0 <- apply(P, 2, mean) # Calculate geometric mean as starting point.
-  p1 <- p0 + 1
+
+  # Test for colinearity (or single point).
+  # If rank is <= 1, the data is 1D (or 0D). Calculate one-dimensional mean.
+  # We use the centered matrix for the rank check.
+  if (qr(t(t(P) - p0))$rank <= 1) {
+    warning(paste0("The matrix is rank-deficient./n",
+    "This most likely means there are few points (only one or two) in the dataset,/n",
+    "or the points are all located on a straight line (colinear)./n",
+    "Returning the mean of points instead"))
+    p1 <- p0
+  } else {
+    p1 <- p0 + 1
+  }
 
   iter <- 1
   while (max(abs(p0 - p1)) > tol && iter < maxiter) {
@@ -82,13 +94,9 @@ st_geo_median <- function(data, group = NULL) {
   }
 
   if (is.null(group)) { # If no group variable is set, calculate geometric median for all points at once.
-    if (nrow(data) < 3) {
-      # If there are less than 3 points in the dataset, apply rules for few points.
-      geomedian_list <- st_geo_median_fewpoints(data)
-    } else {
+
       coords <- sf::st_coordinates(data)
       geomedian_list <- geo_median_inner(coords)
-    }
 
     # Initialize an empty dataframe.
     df <- data.frame(matrix(NA, ncol = 0, nrow = 1))
@@ -113,12 +121,8 @@ st_geo_median <- function(data, group = NULL) {
 
     for (i in seq_along(groupvector)) {
       partdata <- data[data[[group]] == groupvector[i], ]
-      if (nrow(partdata) < 3) {
-        geomedian <- st_geo_median_fewpoints(partdata)
-      } else {
         coords <- sf::st_coordinates(partdata)
         geomedian <- geo_median_inner(coords)
-      }
       geomedian["pointnumber"] <- nrow(partdata)
       geomedian_list[[i]] <- geomedian
     }
@@ -142,20 +146,4 @@ st_geo_median <- function(data, group = NULL) {
   }
   sf::st_crs(df) <- sf::st_crs(data)
   return(df)
-}
-
-st_geo_median_fewpoints <- function(data) {
-  # If only a single point is given, return the point.
-  if (nrow(data) == 1) {
-    p <- as.vector(sf::st_coordinates(data))
-    names(p) <- c("X", "Y")
-    return(list(p = p, d = 0, reltol = 0, niter = 0))
-  } else {
-    # If two points are given, return the point in the midth between them.
-    p <- sf::st_coordinates(data)
-    pointmeans <- colMeans(p)
-    d <- sqrt((p[, 1] - pointmeans["X"])^2 + (p[, 2] - pointmeans["Y"])^2)
-    d <- d[1] + d[2]
-    return(list(p = pointmeans, d = d, reltol = 0, niter = 0))
-  }
 }
