@@ -27,10 +27,10 @@ geo_median_inner <- function(P, tol = 1e-07, maxiter = 200) {
   # We use the centered matrix for the rank check.
   if (qr(t(t(P) - p0))$rank <= 1) {
     warning(paste0(
-      "The matrix is rank-deficient./n",
-      "This most likely means there are few points (only one or two) in the dataset,/n",
-      "or the points are all located on a straight line (colinear)./n",
-      "Returning the median of points instead"
+      "The matrix is rank-deficient. ",
+      "This most likely means there are few points (only one or two) in the dataset, ",
+      "or the points are all located on a straight line (colinear), so the geometric median on a 2-dimensional plane can not be calculated. ",
+      "Returning the one-dimensional median of points instead."
     ))
     p0 <- apply(P, 2, stats::median)
     p1 <- p0
