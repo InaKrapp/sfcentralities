@@ -83,5 +83,118 @@ test_that("Code returns a sf object if only one point is given", {
   expect_s3_class(test, "sf")
 })
 
-# Add tests for st_geo_median_inner: That result is correct value,
-# that result has correct structure.
+# Tests for geo_median_inner:
+
+test_that("geo_median_inner calculates the geometric median for standard 2D data", {
+  # -------------------------------------------------------------------------
+  # Case 1: Standard non-collinear points (Triangle)
+  # -------------------------------------------------------------------------
+
+  # Define 3 points forming a triangle where the median is somewhat distinct
+  # Points: (0,0), (4,0), (0,3)
+  P <- matrix(c(0, 4, 0, 0, 0, 3), ncol = 2)
+
+  # Run function
+  res <- geo_median_inner(P)
+
+  # Check 1: Return structure types
+  expect_type(res, "list")
+  expect_named(res, c("p", "d", "reltol", "niter"))
+  expect_type(res$p, "double")
+  expect_length(res$p, 2)
+
+  # Check 2: Convergence
+  # For non-collinear points, it should iterate more than once
+  expect_gt(res$niter, 1)
+  # The relative tolerance achieved should be less than the default tolerance (1e-07)
+  expect_lt(res$reltol, 1e-07)
+
+  # Check 3: Sanity check on result coordinates
+  # The geometric median must be inside the bounding box of the points
+  expect_true(all(res$p >= 0))
+  expect_true(res$p[1] <= 4)
+  expect_true(res$p[2] <= 3)
+})
+
+test_that("geo_median_inner detects colinearity and returns the median", {
+  # -------------------------------------------------------------------------
+  # Case 2: Collinear points (The specific logic modification)
+  # -------------------------------------------------------------------------
+
+  # Define 3 points lying exactly on the line y = x
+  # Points: (1,1), (2,2), (3,3)
+  # The standard Geometric Median of 1D data is the Median,
+  P_collinear <- matrix(c(1, 2, 3, 1, 2, 3), ncol = 2)
+
+  res <- geo_median_inner(P_collinear)
+
+  # Check 1: Result is the Median
+  # Mean of (1,2,3) is 2.
+  expected_mean <- c(2, 2)
+  expect_equal(res$p, expected_mean, tolerance = 1e-8)
+
+  # Check 2: Iterations skipped
+  # Because QR rank is <= 1, the code sets p1 <- p0.
+  # The while loop condition (max(abs(p0-p1)) > tol) fails immediately.
+  # The iter counter starts at 1 and isn't incremented in the loop.
+  expect_equal(res$niter, 1)
+
+  # -------------------------------------------------------------------------
+  # Case 3: Vertical line (Edge case for QR)
+  # -------------------------------------------------------------------------
+  # Points: (0,0), (0,10), (0,20)
+  P_vert <- matrix(c(0, 0, 0, 0, 10, 20), ncol = 2)
+
+  res_vert <- geo_median_inner(P_vert)
+
+  # Should return arithmetic mean: (0, 10)
+  expect_equal(res_vert$p, c(0, 10), tolerance = 1e-8)
+  expect_equal(res_vert$niter, 1)
+})
+
+test_that("geo_median_inner handles trivial cases (1 or 2 points)", {
+  # -------------------------------------------------------------------------
+  # Case 4: Single Point
+  # -------------------------------------------------------------------------
+  P_single <- matrix(c(5, 5), ncol = 2)
+  res_single <- geo_median_inner(P_single)
+
+  # Rank is 0 (centered matrix is 0). Should return the point itself.
+  expect_equal(res_single$p, c(5, 5))
+  expect_equal(res_single$d, 0) # Distance to self is 0
+  expect_equal(res_single$niter, 1)
+
+  # -------------------------------------------------------------------------
+  # Case 5: Two Points
+  # -------------------------------------------------------------------------
+  # Two points define a line (Rank 1). Should return the midpoint (mean).
+  P_two <- matrix(c(0, 10, 0, 0), ncol = 2) # (0,0) and (10,0)
+  res_two <- geo_median_inner(P_two)
+
+  expect_equal(res_two$p, c(5, 0)) # Midpoint
+  expect_equal(res_two$niter, 1)   # Should skip loop due to Rank 1 check
+})
+
+test_that("geo_median_inner respects control parameters", {
+  # -------------------------------------------------------------------------
+  # Case 6: Max Iterations Warning
+  # -------------------------------------------------------------------------
+  # Create a configuration that normally requires iterations
+  P <- matrix(c(0, 10, 5, 0, 0, 10), ncol = 2)
+
+  # Set maxiter to 1 to force the warning
+  expect_warning(
+    geo_median_inner(P, maxiter = 1),
+    "Maximum number of iterations reached"
+  )
+
+  # -------------------------------------------------------------------------
+  # Case 7: Custom Tolerance
+  # -------------------------------------------------------------------------
+  # If we set a very loose tolerance, it should finish faster (fewer iterations)
+  # than with strict tolerance
+  res_loose <- geo_median_inner(P, tol = 0.1)
+  res_strict <- geo_median_inner(P, tol = 1e-9)
+
+  expect_lt(res_loose$niter, res_strict$niter)
+})

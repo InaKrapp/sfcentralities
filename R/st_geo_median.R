@@ -29,7 +29,8 @@ geo_median_inner <- function(P, tol = 1e-07, maxiter = 200) {
     warning(paste0("The matrix is rank-deficient./n",
     "This most likely means there are few points (only one or two) in the dataset,/n",
     "or the points are all located on a straight line (colinear)./n",
-    "Returning the mean of points instead"))
+    "Returning the median of points instead"))
+    p0 <- apply(P, 2, stats::median)
     p1 <- p0
   } else {
     p1 <- p0 + 1
