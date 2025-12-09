@@ -14,8 +14,8 @@
 #'
 #' @examples
 #' P <- matrix(c(0, 1, 2, 0, 1.5, 2), 3, 2)
-#' geometric_median_point <- st_geo_median_inner(P)
-st_geo_median_inner <- function(P, tol = 1e-07, maxiter = 200) {
+#' geometric_median_point <- geo_median_inner(P)
+geo_median_inner <- function(P, tol = 1e-07, maxiter = 200) {
   # Get numbers of rows and columns.
   m <- nrow(P)
   n <- ncol(P)
@@ -87,7 +87,7 @@ st_geo_median <- function(data, group = NULL) {
       geomedian_list <- st_geo_median_fewpoints(data)
     } else {
       coords <- sf::st_coordinates(data)
-      geomedian_list <- st_geo_median_inner(coords)
+      geomedian_list <- geo_median_inner(coords)
     }
 
     # Initialize an empty dataframe.
@@ -117,7 +117,7 @@ st_geo_median <- function(data, group = NULL) {
         geomedian <- st_geo_median_fewpoints(partdata)
       } else {
         coords <- sf::st_coordinates(partdata)
-        geomedian <- st_geo_median_inner(coords)
+        geomedian <- geo_median_inner(coords)
       }
       geomedian["pointnumber"] <- nrow(partdata)
       geomedian_list[[i]] <- geomedian
