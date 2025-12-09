@@ -172,7 +172,7 @@ test_that("geo_median_inner handles trivial cases (1 or 2 points)", {
   res_two <- geo_median_inner(P_two)
 
   expect_equal(res_two$p, c(5, 0)) # Midpoint
-  expect_equal(res_two$niter, 1)   # Should skip loop due to Rank 1 check
+  expect_equal(res_two$niter, 1) # Should skip loop due to Rank 1 check
 })
 
 test_that("geo_median_inner respects control parameters", {

@@ -26,10 +26,12 @@ geo_median_inner <- function(P, tol = 1e-07, maxiter = 200) {
   # If rank is <= 1, the data is 1D (or 0D). Calculate one-dimensional mean.
   # We use the centered matrix for the rank check.
   if (qr(t(t(P) - p0))$rank <= 1) {
-    warning(paste0("The matrix is rank-deficient./n",
-    "This most likely means there are few points (only one or two) in the dataset,/n",
-    "or the points are all located on a straight line (colinear)./n",
-    "Returning the median of points instead"))
+    warning(paste0(
+      "The matrix is rank-deficient./n",
+      "This most likely means there are few points (only one or two) in the dataset,/n",
+      "or the points are all located on a straight line (colinear)./n",
+      "Returning the median of points instead"
+    ))
     p0 <- apply(P, 2, stats::median)
     p1 <- p0
   } else {
@@ -96,8 +98,8 @@ st_geo_median <- function(data, group = NULL) {
 
   if (is.null(group)) { # If no group variable is set, calculate geometric median for all points at once.
 
-      coords <- sf::st_coordinates(data)
-      geomedian_list <- geo_median_inner(coords)
+    coords <- sf::st_coordinates(data)
+    geomedian_list <- geo_median_inner(coords)
 
     # Initialize an empty dataframe.
     result_sf <- data.frame(matrix(NA, ncol = 0, nrow = 1))
@@ -122,8 +124,8 @@ st_geo_median <- function(data, group = NULL) {
 
     for (i in seq_along(groupvector)) {
       partdata <- data[data[[group]] == groupvector[i], ]
-        coords <- sf::st_coordinates(partdata)
-        geomedian <- geo_median_inner(coords)
+      coords <- sf::st_coordinates(partdata)
+      geomedian <- geo_median_inner(coords)
       geomedian["pointnumber"] <- nrow(partdata)
       geomedian_list[[i]] <- geomedian
     }
