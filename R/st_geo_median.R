@@ -112,8 +112,6 @@ st_geo_median <- function(data, group = NULL) {
     result_sf$niter <- geomedian_list$niter
     result_sf$number_of_points <- nrow(data)
 
-    # Make a sf out of the dataframe
-    result_sf <- sf::st_as_sf(result_sf, coords = c("x", "y"))
   } else {
     # Apply geometric median function to subgroups in dataset
     groupcolumn <- data[, group, drop = FALSE]
@@ -144,9 +142,8 @@ st_geo_median <- function(data, group = NULL) {
 
     result_sf$x <- sapply(geomedian_list, function(x) x$p[1])
     result_sf$y <- sapply(geomedian_list, function(x) x$p[2])
-
-    result_sf <- sf::st_as_sf(result_sf, coords = c("x", "y"))
   }
+  result_sf <- sf::st_as_sf(result_sf, coords = c("x", "y"))
   sf::st_crs(result_sf) <- sf::st_crs(data)
   return(result_sf)
 }
