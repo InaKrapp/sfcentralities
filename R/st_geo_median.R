@@ -70,6 +70,12 @@ geo_median_inner <- function(P, tol = 1e-07, maxiter = 200) {
 #' @param group If the geometric medians should be calculated
 #' grouped by a certain variable. If no group is supplied, a single geometric
 #' median is calculated based on all points of the sf object.
+#' @param tol The tolerance of the geometric median calculation.
+#' The smaller it is, the more precise will the result be, but calculation may also take longer.
+#' @param maxiter The maximal number of iterations. The larger it is, the longer may
+#' the calculation of the geometric median take, but for low values, the
+#' algorithm may finish early before it found an accurate result. In that case,
+#' the user will be notified with a warning.
 #'
 #' @return A sf dataframe of the calculated geometric medians.
 #' @export
@@ -82,7 +88,7 @@ geo_median_inner <- function(P, tol = 1e-07, maxiter = 200) {
 #' pts$index <- "I"
 #' test <- st_geo_median(pts, "index")
 #' test <- st_geo_median(pts)
-st_geo_median <- function(data, group = NULL) {
+st_geo_median <- function(data, group = NULL, tol = 1e-07, maxiter = 200) {
   if (!inherits(data, "sf")) {
     stop("Input must be an sf object")
   }
@@ -99,7 +105,7 @@ st_geo_median <- function(data, group = NULL) {
   if (is.null(group)) { # If no group variable is set, calculate geometric median for all points at once.
 
     coords <- sf::st_coordinates(data)
-    geomedian_list <- geo_median_inner(coords)
+    geomedian_list <- geo_median_inner(coords, tol = tol, maxiter = maxiter)
 
     # Initialize an empty dataframe.
     result_sf <- data.frame(matrix(NA, ncol = 0, nrow = 1))
@@ -123,7 +129,7 @@ st_geo_median <- function(data, group = NULL) {
     for (i in seq_along(groupvector)) {
       partdata <- data[data[[group]] == groupvector[i], ]
       coords <- sf::st_coordinates(partdata)
-      geomedian <- geo_median_inner(coords)
+      geomedian <- geo_median_inner(coords, tol = tol, maxiter = maxiter)
       geomedian["pointnumber"] <- nrow(partdata)
       geomedian_list[[i]] <- geomedian
     }

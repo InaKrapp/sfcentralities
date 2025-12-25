@@ -4,7 +4,7 @@
 \alias{st_geo_median}
 \title{Calculate geometric medians from a sf object.}
 \usage{
-st_geo_median(data, group = NULL)
+st_geo_median(data, group = NULL, tol = 1e-07, maxiter = 200)
 }
 \arguments{
 \item{data}{A sf object based on which the geometric medians are calculated.}
@@ -12,6 +12,14 @@ st_geo_median(data, group = NULL)
 \item{group}{If the geometric medians should be calculated
 grouped by a certain variable. If no group is supplied, a single geometric
 median is calculated based on all points of the sf object.}
+
+\item{tol}{The tolerance of the geometric median calculation.
+The smaller it is, the more precise will the result be, but calculation may also take longer.}
+
+\item{maxiter}{The maximal number of iterations. The larger it is, the longer may
+the calculation of the geometric median take, but for low values, the
+algorithm may finish early before it found an accurate result. In that case,
+the user will be notified with a warning.}
 }
 \value{
 A sf dataframe of the calculated geometric medians.
