@@ -10,7 +10,8 @@ st_closeness_centrality(
   placename = NULL,
   transport_mode = NULL,
   batched_if = 1e+05,
-  normalized = TRUE
+  normalized = TRUE,
+  threshold_reachable = 0.9
 )
 }
 \arguments{
@@ -40,6 +41,11 @@ should be lowered if memory allocation errors occur.}
 \item{normalized}{A logical value. If `TRUE` (default), closeness is normalized
 by the number of reachable nodes, representing the mean of distances. If `FALSE`,
 it is the inverse of the sum of distances.}
+
+\item{threshold_reachable}{A numeric value between 0 and 1. Defines the tolerance
+for filtering points based on reachability. Points with NA counts above this
+quantile threshold are removed. Default is 0.9, meaning points reachable by
+at least 90\% of the network are kept. Set to 1 to keep all points.}
 }
 \value{
 An `sf` dataframe of the input `data` points (or the graph vertices
@@ -71,7 +77,7 @@ print(pts_centrality_with_graph)
 \dontrun{
 # This example requires internet access to download OSM data
 pts <- sf::st_sfc(sf::st_point(c(76.47398, 15.330)), sf::st_point(c(76.47398, 15.150)))
-pts <- sf::st_as_sf(pts_no_id)
+pts <- sf::st_as_sf(pts)
 sf::st_crs(pts) <- "EPSG:4326"
 
 pts_centrality_build_graph <- st_closeness_centrality(
@@ -81,4 +87,5 @@ pts_centrality_build_graph <- st_closeness_centrality(
 )
 print(pts_centrality_build_graph)
 }
+
 }

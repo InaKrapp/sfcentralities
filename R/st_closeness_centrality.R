@@ -24,10 +24,20 @@
 #' @param normalized A logical value. If `TRUE` (default), closeness is normalized
 #'   by the number of reachable nodes, representing the mean of distances. If `FALSE`,
 #'   it is the inverse of the sum of distances.
+#' @param threshold_reachable A numeric value between 0 and 1. Defines the tolerance
+#'   for filtering points based on reachability. Points with NA counts above this
+#'   quantile threshold are removed. Default is 0.9, meaning points reachable by
+#'   at least 90\% of the network are kept. Set to 1 to keep all points.
 #'
 #' @return An `sf` dataframe of the input `data` points (or the graph vertices
 #'   if `data` was a `dodgr_streetnet`), with an additional column 'closeness'
 #'   and with CRS "EPSG:4326".
+#'
+#' @importFrom sf st_coordinates st_as_sf st_crs st_transform st_is_longlat
+#' @importFrom dodgr dodgr_dists dodgr_vertices dodgr_components weight_streetnet dodgr_streetnet
+#' @importFrom osmdata getbb
+#' @importFrom stats setNames quantile
+#'
 #' @export
 #'
 #' @examples
@@ -51,7 +61,7 @@
 #' \dontrun{
 #' # This example requires internet access to download OSM data
 #' pts <- sf::st_sfc(sf::st_point(c(76.47398, 15.330)), sf::st_point(c(76.47398, 15.150)))
-#' pts <- sf::st_as_sf(pts_no_id)
+#' pts <- sf::st_as_sf(pts)
 #' sf::st_crs(pts) <- "EPSG:4326"
 #'
 #' pts_centrality_build_graph <- st_closeness_centrality(
@@ -61,194 +71,97 @@
 #' )
 #' print(pts_centrality_build_graph)
 #' }
-st_closeness_centrality <- function(data = NULL, graph = NULL, placename = NULL, transport_mode = NULL, batched_if = 100000, normalized = TRUE) {
-  # --- Input Validation and Graph Preparation ---
+#'
+st_closeness_centrality <- function(data = NULL,
+                                    graph = NULL,
+                                    placename = NULL,
+                                    transport_mode = NULL,
+                                    batched_if = 100000,
+                                    normalized = TRUE,
+                                    threshold_reachable = 0.9) {
+  # --- Input Validation ---
+  .validate_closeness_params(threshold_reachable, batched_if, normalized)
 
-  # Case 1: 'data' is already a dodgr_streetnet graph
-  if (inherits(data, "dodgr_streetnet")) {
-    message("Input 'data' is a dodgr_streetnet graph. Calculating closeness for all its vertices.")
-    input_graph <- data
-    input_is_sf_points <- FALSE # Flag to indicate original input type
-    # dodgr_vertices naturally has an 'id' column, which we will use as the identifier.
-  }
-  # Case 2: 'data' is an sf object (points)
-  else if (inherits(data, "sf")) {
-    input_is_sf_points <- TRUE
+  # --- Graph Preparation ---
+  prep_result <- .prepare_graph_and_data(
+    data = data,
+    graph = graph,
+    placename = placename,
+    transport_mode = transport_mode
+  )
 
-    # CRITICAL: Create a copy of the sf object for internal processing.
-    # This ensures the original `data` object passed by the user is not modified.
-    data_for_processing <- data
-    rm(data) # Remove the original 'data' reference to avoid accidental use
+  input_graph <- prep_result$input_graph
+  input_is_sf_points <- prep_result$input_is_sf_points
+  data_internal <- prep_result$data_internal
+  original_crs <- prep_result$original_crs
 
-    # Ensure points CRS is compatible with dodgr's expectation (often geographic)
-    old_crs <- sf::st_crs(data_for_processing)
-    if (sf::st_is_longlat(data_for_processing) == FALSE) {
-      data_for_processing <- sf::st_transform(data_for_processing, crs = "EPSG:4326")
-      message("Warning: Input 'data' CRS transformed to EPSG:4326 for distance calculation.")
-    }
+  # --- Filter to Largest Connected Component ---
+  input_graph <- .filter_to_largest_component(input_graph)
 
-    # Decide which graph to use or build
-    if (!is.null(graph)) {
-      message("Input 'data' is an sf object, and a 'graph' is supplied. Using the supplied graph.")
-      input_graph <- graph
-    } else { # No 'graph' supplied, so build one
-      message("Input 'data' is an sf object, and no graph is supplied. Building graph using 'placename' and 'transport_mode'.")
-      # Validate placename and transport_mode
-      if (is.null(placename) || is.null(transport_mode)) {
-        stop("If 'data' is an sf object and no 'graph' is supplied, both 'placename' and 'transport_mode' must be provided.")
-      }
-      # Build graph from placename
-      message(paste0("Getting street network for '", placename, "' with mode '", transport_mode, "'."))
-      bb <- osmdata::getbb(place_name = placename)
-      if (is.null(bb)) {
-        stop(paste0("Could not find bounding box for placename: ", placename, ". Please check the name."))
-      }
-      net <- dodgr::dodgr_streetnet(bb)
-      input_graph <- dodgr::weight_streetnet(net, wt_profile = transport_mode)
-    }
-  }
-  # Case 3: Only the name of a place and the transport mode are supplied
-  else if (is.null(data) && is.null(graph)) {
-    # Validate placename and transport_mode
-    if (is.null(placename) || is.null(transport_mode)) {
-      stop("If no 'graph' is supplied, both 'placename' and 'transport_mode' must be provided.")
-    }
-    # Build graph from placename
-    message(paste0("Getting street network for '", placename, "' with mode '", transport_mode, "'."))
-    bb <- osmdata::getbb(place_name = placename)
-    if (is.null(bb)) {
-      stop(paste0("Could not find bounding box for placename: ", placename, ". Please check the name."))
-    }
-    net <- dodgr::dodgr_streetnet(bb)
-    input_graph <- dodgr::weight_streetnet(net, wt_profile = transport_mode)
-    input_is_sf_points <- FALSE
-  }
-  # Case 4: No data is supplied, but a graph.
-  else if (is.null(data) && inherits(graph, "dodgr_streetnet")) {
-    message("Input 'graph' is a dodgr_streetnet graph. Calculating closeness for all its vertices.")
-    input_graph <- graph
-    input_is_sf_points <- FALSE # Flag to indicate original input type
-  }
-  # Error for unsupported 'data' type
-  else {
-    stop("Input 'data' must be an 'sf' dataframe of points or a 'dodgr_streetnet' object. If 'data' is not supplied, a graph or a placename and a transport_mode have to be supplied.")
-  }
-
-  # Ensure the graph has a 'component' column and filter to the largest component
-  if (!"component" %in% names(input_graph)) {
-    input_graph <- dodgr::dodgr_components(input_graph)
-  }
-  input_graph <- input_graph[input_graph$component == 1, ]
-  message(paste0(
-    "Using the largest connected component of the graph (containing ",
-    max(input_graph$component_rank), " vertices)."
-  ))
-
-  # --- Closeness Centrality Calculation ---
-
-  # Extract 'from' points for distance calculation
+  # --- Prepare Points for Distance Calculation ---
   if (input_is_sf_points) {
-    from_points <- as.data.frame(sf::st_coordinates(data_for_processing))
-    names(from_points) <- c("x", "y")
-    # Assign row numbers as character IDs for dodgr_dists.
-    # These will become the rownames of the dodgr_dists output.
-    from_points$id <- as.character(seq_len(nrow(data_for_processing)))
-    message("Using row numbers as temporary identifiers for sf points.")
+    from_points <- .prepare_sf_points(data_internal)
     n_elements <- nrow(from_points)
-  } else { # If data was a dodgr graph, calculate for all its vertices
+    # Store row IDs for later filtering (before any operations modify the data)
+    row_ids <- from_points$id
+  } else {
     from_points <- dodgr::dodgr_vertices(input_graph)
-    # dodgr_vertices naturally has an 'id' column, which serves as the identifier.
     n_elements <- nrow(from_points)
+    row_ids <- from_points$id
   }
 
   message("Starting distance calculation.")
 
-  points_above_avg_na <- character(0) # Initialize as empty character vector
-
+  # --- Calculate Closeness Centrality ---
   if (n_elements > batched_if) {
-    message(paste0("Number of elements (", n_elements, ") exceeds 'batched_if' (", batched_if, "). Calculating distances in batches."))
+    message(paste0(
+      "Number of elements (", n_elements, ") exceeds 'batched_if' (", batched_if,
+      "). Calculating distances in batches."
+    ))
 
-    # Call the largedata function, passing `from_points` if applicable
-    largedata_result <- st_closeness_centrality_largedata(
+    calc_result <- st_closeness_centrality_largedata(
       graph = input_graph,
-      from_points = if (input_is_sf_points) from_points else NULL, # Pass from_points only if input_is_sf_points
+      from_points = if (input_is_sf_points) from_points else NULL,
       normalized = normalized,
-      chunk_size = batched_if
+      chunk_size = batched_if,
+      threshold_reachable = threshold_reachable
     )
-    closeness_values <- largedata_result$closeness_values
-    points_above_avg_na <- largedata_result$nodes_to_filter_ids # Store filter IDs
+    closeness_values <- calc_result$closeness_values
+    points_low_reachability <- calc_result$nodes_to_filter_ids
   } else {
-    message(paste0("Number of elements (", n_elements, ") is within 'batched_if' (", batched_if, "). Calculating all-pairs distances."))
+    message(paste0(
+      "Number of elements (", n_elements, ") is within 'batched_if' (", batched_if,
+      "). Calculating all-pairs distances."
+    ))
 
-    if (input_is_sf_points) {
-      # dodgr_dists will use from_points$id (our row numbers as characters) as rownames
-      testdistances <- dodgr::dodgr_dists(graph = input_graph, from = from_points)
-    } else {
-      # dodgr_distances will use graph vertex IDs as rownames
-      testdistances <- dodgr::dodgr_distances(graph = input_graph)
-    }
-
-    # Filtering logic: rownames(testdistances) will be our identifiers
-    points_above_avg_na <- rownames(testdistances)[rowSums(is.na(testdistances)) > mean(rowSums(is.na(testdistances)))]
-
-    if (normalized) {
-      closeness_values <- 1 / rowMeans(testdistances, na.rm = TRUE)
-    } else {
-      closeness_values <- 1 / rowSums(testdistances, na.rm = TRUE)
-    }
+    calc_result <- .calculate_closeness_direct(
+      graph = input_graph,
+      from_points = if (input_is_sf_points) from_points else NULL,
+      normalized = normalized,
+      threshold_reachable = threshold_reachable
+    )
+    closeness_values <- calc_result$closeness_values
+    points_low_reachability <- calc_result$nodes_to_filter_ids
   }
 
   message("Distance calculation finished.")
 
   # --- Prepare Output ---
+  result <- .prepare_output(
+    input_is_sf_points = input_is_sf_points,
+    data_internal = data_internal,
+    from_points = from_points,
+    closeness_values = closeness_values,
+    points_low_reachability = points_low_reachability,
+    row_ids = row_ids,
+    original_crs = original_crs
+  )
 
-  if (input_is_sf_points) {
-    # It's safer to map closeness values to IDs explicitly
-    # closeness_values should be named according to the IDs used in calculation (our row numbers)
-    if (!is.null(names(closeness_values))) {
-      closeness_map <- stats::setNames(closeness_values, names(closeness_values))
-      # Assign closeness back to the data_for_processing based on row numbers (as characters)
-      # Ensure data_for_processing's rownames are also characters for consistent lookup
-      data_for_processing$closeness <- closeness_map[as.character(seq_len(nrow(data_for_processing)))]
-    } else {
-      # Fallback: if closeness_values are not named, assume order matches. (less robust)
-      data_for_processing$closeness <- closeness_values
-      warning("Closeness values were not named. Assuming order matches input points for assignment. This might be unreliable.")
-    }
-
-    # Apply filtering using the collected identifiers (row numbers as characters)
-    # We compare the current row numbers (as character strings) with the list of identifiers to remove.
-    data_for_processing <- data_for_processing[!(as.character(seq_len(nrow(data_for_processing))) %in% points_above_avg_na), ]
-
-    # No temporary ID column to remove, as we used row numbers.
-
-    # If CRS was changed, revert it
-    if (exists("old_crs")) {
-      data_for_processing <- sf::st_transform(data_for_processing, crs = old_crs)
-    }
-    return(data_for_processing)
-  } else {
-    # This block handles when 'data' was a dodgr_streetnet.
-    # 'from_points' (vertices_with_closeness) is created new here.
-    # 'dodgr_vertices' provides an 'id' column by default.
-    vertices_with_closeness <- from_points
-    if (!is.null(names(closeness_values))) {
-      closeness_map <- stats::setNames(closeness_values, names(closeness_values))
-      vertices_with_closeness$closeness <- closeness_map[vertices_with_closeness$id]
-    } else {
-      vertices_with_closeness$closeness <- closeness_values
-      warning("Closeness values were not named. Assuming order matches graph vertices for assignment. This might be unreliable.")
-    }
-
-    # Apply filtering using the collected IDs (from dodgr_vertices$id)
-    vertices_with_closeness <- vertices_with_closeness[!(vertices_with_closeness$id %in% points_above_avg_na), ]
-    vertices_with_closeness <- sf::st_as_sf(vertices_with_closeness, coords = c("x", "y"), crs = "EPSG:4326")
-    message("Returning graph vertices with calculated closeness.")
-    return(vertices_with_closeness)
-  }
+  return(result)
 }
 
-#' A function to find closeness centrality in large dodgr graphs using batch processing
+
+#' Calculate Closeness Centrality for Large Networks Using Batch Processing
 #'
 #' This helper function calculates closeness centrality for each vertex in a large
 #' `dodgr` graph by processing distances in batches. This approach reduces memory
@@ -266,13 +179,18 @@ st_closeness_centrality <- function(data = NULL, graph = NULL, placename = NULL,
 #'   (mean of distances). If `FALSE`, unnormalized closeness is computed (sum of distances).
 #' @param chunk_size The number of vertices/points for which distances should be calculated
 #'   at once in each iteration. Defaults to `1000`. This directly controls memory usage.
+#' @param threshold_reachable A numeric value between 0 and 1. Defines the tolerance
+#'   for filtering points based on reachability. Points with NA counts above this
+#'   quantile threshold are removed. Default is 0.9.
 #'
 #' @return A list containing:
-#'   - `closeness_values`: A numeric vector of closeness values, one for each
-#'     vertex/point from which distances were calculated. These values are named
-#'     with the corresponding IDs (row numbers or graph vertex IDs).
-#'   - `nodes_to_filter_ids`: A character vector of node/point IDs that should be filtered
-#'     out because they are less reachable than average.
+#'   \itemize{
+#'     \item `closeness_values`: A named numeric vector of closeness values, one for each
+#'       vertex/point from which distances were calculated.
+#'     \item `nodes_to_filter_ids`: A character vector of node/point IDs that should be
+#'       filtered out due to low reachability.
+#'   }
+#'
 #' @export
 #'
 #' @examples
@@ -282,107 +200,406 @@ st_closeness_centrality <- function(data = NULL, graph = NULL, placename = NULL,
 #' graph_hampi <- dodgr::weight_streetnet(hampi, wt_profile = "foot")
 #'
 #' # Example 1: Calculate closeness for all graph vertices using batch processing
-#' closeness_values_batched_graph <- st_closeness_centrality_largedata(graph_hampi,
-#'   normalized = TRUE, chunk_size = 50
+#' closeness_result <- st_closeness_centrality_largedata(
+#'   graph_hampi,
+#'   normalized = TRUE,
+#'   chunk_size = 50
 #' )
-#' head(closeness_values_batched_graph$closeness_values)
+#' head(closeness_result$closeness_values)
 #'
-#' # Example 2: Calculate closeness from specific points to graph vertices using batch processing
-#' pts <- sf::st_sfc(sf::st_point(c(76.47398, 15.330)), sf::st_point(c(76.47398, 15.150)))
+#' # Example 2: Calculate closeness from specific points using batch processing
+#' pts <- sf::st_sfc(
+#'   sf::st_point(c(76.47398, 15.330)),
+#'   sf::st_point(c(76.47398, 15.150))
+#' )
 #' pts <- sf::st_as_sf(pts)
 #' sf::st_crs(pts) <- "EPSG:4326"
 #' pts_df <- as.data.frame(sf::st_coordinates(pts))
 #' names(pts_df) <- c("x", "y")
-#' pts_df$id <- as.character(seq_len(nrow(pts_df))) # Use row numbers as IDs
+#' pts_df$id <- as.character(seq_len(nrow(pts_df)))
 #'
-#' closeness_values_batched_points <- st_closeness_centrality_largedata(
+#' closeness_result_pts <- st_closeness_centrality_largedata(
 #'   graph = graph_hampi,
 #'   from_points = pts_df,
 #'   normalized = TRUE,
-#'   chunk_size = 1 # Small chunk_size for example
+#'   chunk_size = 1
 #' )
-#' head(closeness_values_batched_points$closeness_values)
-st_closeness_centrality_largedata <- function(graph, from_points = NULL, normalized, chunk_size = 1000) {
-  # Determine whether we are processing graph vertices or specific 'from_points'
+#' head(closeness_result_pts$closeness_values)
+st_closeness_centrality_largedata <- function(graph,
+                                              from_points = NULL,
+                                              normalized = TRUE,
+                                              chunk_size = 1000,
+                                              threshold_reachable = 0.9) {
+  # --- Input Validation ---
+  if (!inherits(graph, "dodgr_streetnet")) {
+    stop("'graph' must be a dodgr_streetnet object.")
+  }
+  if (!is.numeric(chunk_size) || chunk_size < 1) {
+    stop("'chunk_size' must be a positive integer.")
+  }
+  if (!is.numeric(threshold_reachable) || threshold_reachable < 0 || threshold_reachable > 1) {
+    stop("'threshold_reachable' must be a numeric value between 0 and 1.")
+  }
+
+  # --- Determine Nodes to Process ---
   if (!is.null(from_points)) {
-    # If from_points is provided, we are calculating distances FROM these points.
-    # The 'nodes_to_process' are the 'from_points' themselves.
-    nodes_to_process <- from_points
-    # Ensure from_points has an 'id' column for robust mapping (expected from main function)
-    if (!"id" %in% names(nodes_to_process)) {
-      stop("`from_points` must contain an 'id' column for batched processing.")
+    if (!"id" %in% names(from_points)) {
+      stop("'from_points' must contain an 'id' column for batched processing.")
     }
+    nodes_to_process <- from_points
+    use_from_points <- TRUE
   } else {
-    # If from_points is NULL, we are calculating distances for all graph vertices.
     nodes_to_process <- dodgr::dodgr_vertices(graph)
+    use_from_points <- FALSE
   }
 
   node_ids <- nodes_to_process$id
-  n_nodes_to_process <- nrow(nodes_to_process)
+  n_nodes <- nrow(nodes_to_process)
 
-  closeness_normal_dodgr <- numeric(n_nodes_to_process)
-  names(closeness_normal_dodgr) <- node_ids # Name the result vector with node/point IDs
-  processed_nodes <- logical(n_nodes_to_process)
-  na_counts_per_node <- numeric(n_nodes_to_process)
-  names(na_counts_per_node) <- node_ids # Name this vector too for consistent filtering
+  # --- Initialize Result Vectors ---
+  closeness_values <- numeric(n_nodes)
+  names(closeness_values) <- node_ids
 
-  message(paste0("Starting batched calculation for ", n_nodes_to_process, " nodes with a chunk size of ", chunk_size, "."))
+  na_counts_per_node <- numeric(n_nodes)
+  names(na_counts_per_node) <- node_ids
 
-  for (i in seq(1, n_nodes_to_process, chunk_size)) {
-    end <- min(i + chunk_size - 1, n_nodes_to_process)
-    current_chunk_indices <- i:end
-    current_nodes_in_chunk <- nodes_to_process[current_chunk_indices, ]
+  processed_nodes <- logical(n_nodes)
+  names(processed_nodes) <- node_ids
 
-    message(paste0("  Processing chunk: nodes ", i, " to ", end, " out of ", n_nodes_to_process, "."))
+  message(paste0(
+    "Starting batched calculation for ", n_nodes,
+    " nodes with chunk size of ", chunk_size, "."
+  ))
 
-    # Determine which dodgr function to call based on `from_points`
-    if (!is.null(from_points)) {
-      # Calculate distances FROM current_nodes_in_chunk TO ALL graph vertices
-      # dodgr_dists will use current_nodes_in_chunk$id for rownames
-      testdistances_chunk <- dodgr::dodgr_dists(graph = graph, from = current_nodes_in_chunk)
-    } else {
-      # Calculate distances between graph vertices, FROM current_nodes_in_chunk TO ALL graph vertices
-      # dodgr_distances will use current_nodes_in_chunk$id for rownames
-      testdistances_chunk <- dodgr::dodgr_distances(graph = graph, from = current_nodes_in_chunk)
+  # --- Process in Batches ---
+  for (i in seq(1, n_nodes, chunk_size)) {
+    end_idx <- min(i + chunk_size - 1, n_nodes)
+    chunk_indices <- i:end_idx
+    current_chunk <- nodes_to_process[chunk_indices, ]
+
+    message(paste0(
+      "  Processing chunk: nodes ", i, " to ", end_idx, " of ", n_nodes, "."
+    ))
+
+    # Calculate distances for current chunk
+    distance_matrix_chunk <- dodgr::dodgr_dists(
+      graph = graph,
+      from = current_chunk
+    )
+
+    # Track NA counts for reachability filtering
+    chunk_na_counts <- rowSums(is.na(distance_matrix_chunk))
+    na_counts_per_node[names(chunk_na_counts)] <- chunk_na_counts
+
+    # Identify completely unreachable nodes
+    unreachable_mask <- chunk_na_counts == ncol(distance_matrix_chunk)
+    n_unreachable <- sum(unreachable_mask)
+
+    if (n_unreachable > 0) {
+      message(paste0(
+        "    Warning: ", n_unreachable,
+        " node(s) in this chunk are completely unreachable."
+      ))
     }
 
-    current_chunk_na_counts <- rowSums(is.na(testdistances_chunk))
-    # Assign by index to the full vector, assuming `nodes_to_process` maintains original order.
-    # The names of `current_chunk_na_counts` will be `current_nodes_in_chunk$id`, which is what we need.
-    na_counts_per_node[names(current_chunk_na_counts)] <- current_chunk_na_counts
+    # Calculate closeness for reachable nodes
+    valid_rows <- !unreachable_mask
+    if (any(valid_rows)) {
+      valid_distances <- distance_matrix_chunk[valid_rows, , drop = FALSE]
+      valid_ids <- rownames(valid_distances)
 
-
-    unreachable_in_chunk <- rowSums(is.na(testdistances_chunk)) == ncol(testdistances_chunk)
-    valid_distances_chunk <- testdistances_chunk[!unreachable_in_chunk, ]
-    valid_chunk_ids <- rownames(valid_distances_chunk) # Get IDs of valid rows
-
-    if (length(valid_chunk_ids) > 0) {
       if (normalized) {
-        closeness_values_chunk <- 1 / rowMeans(valid_distances_chunk, na.rm = TRUE)
+        chunk_closeness <- 1 / rowMeans(valid_distances, na.rm = TRUE)
       } else {
-        closeness_values_chunk <- 1 / rowSums(valid_distances_chunk, na.rm = TRUE)
+        chunk_closeness <- 1 / rowSums(valid_distances, na.rm = TRUE)
       }
-      # Assign results back to the main result vector using names (IDs) for robustness
-      closeness_normal_dodgr[valid_chunk_ids] <- closeness_values_chunk
-      # Mark processed using indices corresponding to the IDs
-      processed_nodes[match(valid_chunk_ids, node_ids)] <- TRUE
-    }
 
-    if (any(unreachable_in_chunk)) {
-      message(paste0("    Warning: ", sum(unreachable_in_chunk), " node(s) in this chunk were unreachable from any other point and will have NA closeness."))
+      closeness_values[valid_ids] <- chunk_closeness
+      processed_nodes[valid_ids] <- TRUE
     }
   }
 
-  # For any nodes that were not processed (i.e., had all NA distances), set their closeness to NA
-  closeness_normal_dodgr[!processed_nodes] <- NA
+  # --- Mark Unprocessed Nodes as NA ---
+  closeness_values[!processed_nodes] <- NA
 
-  mean_global_na_count <- mean(na_counts_per_node, na.rm = TRUE)
-  # Filter using the named vector and the mean
-  points_above_avg_na_ids <- names(na_counts_per_node)[na_counts_per_node > mean_global_na_count]
+  # --- Identify Low Reachability Nodes ---
+  threshold_value <- stats::quantile(na_counts_per_node, threshold_reachable, na.rm = TRUE)
+  low_reachability_ids <- names(na_counts_per_node)[na_counts_per_node > threshold_value]
+
+  if (length(low_reachability_ids) > 0) {
+    message(paste0(
+      "Identified ", length(low_reachability_ids),
+      " nodes with low reachability for filtering."
+    ))
+  }
 
   message("Batched calculation finished.")
+
   return(list(
-    closeness_values = closeness_normal_dodgr,
-    nodes_to_filter_ids = points_above_avg_na_ids
+    closeness_values = closeness_values,
+    nodes_to_filter_ids = low_reachability_ids
   ))
+}
+
+
+# =============================================================================
+# INTERNAL HELPER FUNCTIONS
+# =============================================================================
+
+#' Validate Common Parameters for Closeness Centrality
+#' @noRd
+.validate_closeness_params <- function(threshold_reachable, batched_if, normalized) {
+  if (!is.numeric(threshold_reachable) ||
+    length(threshold_reachable) != 1 ||
+    threshold_reachable < 0 ||
+    threshold_reachable > 1) {
+    stop("'threshold_reachable' must be a single numeric value between 0 and 1.")
+  }
+
+  if (!is.numeric(batched_if) ||
+    length(batched_if) != 1 ||
+    batched_if < 1) {
+    stop("'batched_if' must be a single positive integer.")
+  }
+
+  if (!is.logical(normalized) || length(normalized) != 1) {
+    stop("'normalized' must be TRUE or FALSE.")
+  }
+}
+
+
+#' Build a Street Network Graph from a Place Name
+#' @noRd
+.build_graph_from_placename <- function(placename, transport_mode) {
+  if (is.null(placename) || is.null(transport_mode)) {
+    stop("Both 'placename' and 'transport_mode' must be provided to build a graph.")
+  }
+
+  message(paste0(
+    "Getting street network for '", placename,
+    "' with mode '", transport_mode, "'."
+  ))
+
+  bounding_box <- osmdata::getbb(place_name = placename)
+
+  if (is.null(bounding_box)) {
+    stop(paste0(
+      "Could not find bounding box for placename: '", placename,
+      "'. Please check the name."
+    ))
+  }
+
+  street_network <- dodgr::dodgr_streetnet(bounding_box)
+  weighted_graph <- dodgr::weight_streetnet(street_network, wt_profile = transport_mode)
+
+  return(weighted_graph)
+}
+
+
+#' Prepare Graph and Data Based on Input Types
+#' @noRd
+.prepare_graph_and_data <- function(data, graph, placename, transport_mode) {
+  input_graph <- NULL
+  input_is_sf_points <- FALSE
+  data_internal <- NULL
+  original_crs <- NULL
+
+  # Case 1: 'data' is a dodgr_streetnet graph
+  if (inherits(data, "dodgr_streetnet")) {
+    message("Input 'data' is a dodgr_streetnet graph. Calculating closeness for all vertices.")
+    input_graph <- data
+    input_is_sf_points <- FALSE
+  }
+  # Case 2: 'data' is an sf object
+  else if (inherits(data, "sf")) {
+    message("Input 'data' is an sf object.")
+    input_is_sf_points <- TRUE
+    data_internal <- data
+
+    # Handle CRS transformation
+    if (!sf::st_is_longlat(data_internal)) {
+      original_crs <- sf::st_crs(data_internal)
+      data_internal <- sf::st_transform(data_internal, crs = "EPSG:4326")
+      warning("Input 'data' CRS transformed to EPSG:4326 for distance calculation.")
+    }
+
+    # Determine which graph to use
+    if (!is.null(graph)) {
+      message("Using supplied 'graph' for calculations.")
+      input_graph <- graph
+    } else {
+      message("No graph supplied. Building graph from 'placename' and 'transport_mode'.")
+      input_graph <- .build_graph_from_placename(placename, transport_mode)
+    }
+  }
+  # Case 3: No data, but graph provided
+  else if (is.null(data) && inherits(graph, "dodgr_streetnet")) {
+    message("Using supplied 'graph'. Calculating closeness for all vertices.")
+    input_graph <- graph
+    input_is_sf_points <- FALSE
+  }
+  # Case 4: No data, no graph - build from placename
+  else if (is.null(data) && is.null(graph)) {
+    message("No data or graph supplied. Building graph from 'placename' and 'transport_mode'.")
+    input_graph <- .build_graph_from_placename(placename, transport_mode)
+    input_is_sf_points <- FALSE
+  }
+  # Error case
+  else {
+    stop(paste0(
+      "Invalid input combination. Provide one of:\n",
+      "  - 'data' as an sf dataframe or dodgr_streetnet\n",
+      "  - 'graph' as a dodgr_streetnet\
+",
+      "  - 'placename' and 'transport_mode' to build a graph"
+    ))
+  }
+
+  return(list(
+    input_graph = input_graph,
+    input_is_sf_points = input_is_sf_points,
+    data_internal = data_internal,
+    original_crs = original_crs
+  ))
+}
+
+
+#' Filter Graph to Largest Connected Component
+#' @noRd
+.filter_to_largest_component <- function(graph) {
+  if (!"component" %in% names(graph)) {
+    graph <- dodgr::dodgr_components(graph)
+  }
+
+  graph_filtered <- graph[graph$component == 1, ]
+  n_vertices <- nrow(dodgr::dodgr_vertices(graph_filtered))
+
+  message(paste0(
+    "Using largest connected component (", n_vertices, " vertices)."
+  ))
+
+  return(graph_filtered)
+}
+
+
+#' Prepare SF Points for Distance Calculation
+#' @noRd
+.prepare_sf_points <- function(sf_data) {
+  coords <- as.data.frame(sf::st_coordinates(sf_data))
+  names(coords) <- c("x", "y")
+  coords$id <- as.character(seq_len(nrow(sf_data)))
+
+  message("Assigned row numbers as temporary identifiers for sf points.")
+
+  return(coords)
+}
+
+
+#' Calculate Closeness Centrality Directly (Non-batched)
+#' @noRd
+.calculate_closeness_direct <- function(graph, from_points, normalized, threshold_reachable) {
+  # Calculate distance matrix
+  if (!is.null(from_points)) {
+    distance_matrix <- dodgr::dodgr_dists(graph = graph, from = from_points)
+  } else {
+    distance_matrix <- dodgr::dodgr_dists(graph = graph)
+  }
+
+  # Calculate NA counts for reachability filtering
+  na_counts <- rowSums(is.na(distance_matrix))
+  threshold_value <- stats::quantile(na_counts, threshold_reachable)
+  low_reachability_ids <- rownames(distance_matrix)[na_counts > threshold_value]
+
+  if (length(low_reachability_ids) > 0) {
+    message(paste0(
+      "Identified ", length(low_reachability_ids),
+      " points with low reachability for filtering."
+    ))
+  }
+
+  # Calculate closeness values
+  if (normalized) {
+    closeness_values <- 1 / rowMeans(distance_matrix, na.rm = TRUE)
+  } else {
+    closeness_values <- 1 / rowSums(distance_matrix, na.rm = TRUE)
+  }
+
+  return(list(
+    closeness_values = closeness_values,
+    nodes_to_filter_ids = low_reachability_ids
+  ))
+}
+
+
+#' Prepare Final Output
+#' @noRd
+.prepare_output <- function(input_is_sf_points,
+                            data_internal,
+                            from_points,
+                            closeness_values,
+                            points_low_reachability,
+                            row_ids,
+                            original_crs) {
+  if (input_is_sf_points) {
+    # Assign closeness values to the internal data copy
+    if (!is.null(names(closeness_values))) {
+      closeness_map <- stats::setNames(closeness_values, names(closeness_values))
+      data_internal$closeness <- closeness_map[row_ids]
+    } else {
+      data_internal$closeness <- closeness_values
+      warning("Closeness values not named. Assuming order matches input points.")
+    }
+
+    # Filter using stored row IDs
+    keep_mask <- !(row_ids %in% points_low_reachability)
+
+    if (!any(keep_mask)) {
+      warning("All points were filtered due to low reachability. Returning empty sf object.")
+    } else if (sum(!keep_mask) > 0) {
+      message(paste0("Filtered ", sum(!keep_mask), " points due to low reachability."))
+    }
+
+    result <- data_internal[keep_mask, ]
+
+    # Restore original CRS if it was changed
+    if (!is.null(original_crs)) {
+      result <- sf::st_transform(result, crs = original_crs)
+      message("Restored original CRS.")
+    }
+
+    return(result)
+  } else {
+    # Output for graph vertices
+    vertices_result <- from_points
+
+    if (!is.null(names(closeness_values))) {
+      closeness_map <- stats::setNames(closeness_values, names(closeness_values))
+      vertices_result$closeness <- closeness_map[vertices_result$id]
+    } else {
+      vertices_result$closeness <- closeness_values
+      warning("Closeness values not named. Assuming order matches graph vertices.")
+    }
+
+    # Filter low reachability vertices
+    keep_mask <- !(vertices_result$id %in% points_low_reachability)
+
+    if (!any(keep_mask)) {
+      warning("All vertices were filtered due to low reachability. Returning empty sf object.")
+    } else if (sum(!keep_mask) > 0) {
+      message(paste0("Filtered ", sum(!keep_mask), " vertices due to low reachability."))
+    }
+
+    vertices_result <- vertices_result[keep_mask, ]
+
+    # Convert to sf object
+    result <- sf::st_as_sf(
+      vertices_result,
+      coords = c("x", "y"),
+      crs = "EPSG:4326"
+    )
+
+    message("Returning graph vertices with calculated closeness.")
+
+    return(result)
+  }
 }

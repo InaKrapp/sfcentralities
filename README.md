@@ -4,6 +4,7 @@
 # sfcentralities
 
 <!-- badges: start -->
+
 <!-- badges: end -->
 
 sfcentralities allows to find central points of sf objects easily. It
@@ -44,8 +45,7 @@ it is designed to use sf objects as input.
 ``` r
 # Load necessary packages
 library(sf)
-#> Warning: package 'sf' was built under R version 4.3.3
-#> Linking to GEOS 3.11.2, GDAL 3.8.2, PROJ 9.3.1; sf_use_s2() is TRUE
+#> Linking to GEOS 3.13.1, GDAL 3.11.0, PROJ 9.6.0; sf_use_s2() is TRUE
 library(sfcentralities)
 
 # Create example data
@@ -69,6 +69,11 @@ pts[4, ]$index <- 2
 
 # Calculate the geometric medians for each index value separately
 geometric_medians_by_group <- st_geo_median(pts, "index")
+#> Warning in geo_median_inner(coords, tol = tol, maxiter = maxiter): The matrix
+#> is rank-deficient. This most likely means there are few points (only one or
+#> two) in the dataset, or the points are all located on a straight line
+#> (colinear), so the geometric median on a 2-dimensional plane can not be
+#> calculated. Returning the one-dimensional median of points instead.
 ```
 
 The returned object is a sf object which contains the geometric median
@@ -82,7 +87,6 @@ Since the result is a sf object, it can be plotted easily with ggplot2:
 ``` r
 ## Plot the results:
 library(ggplot2)
-#> Warning: package 'ggplot2' was built under R version 4.3.3
 
 ggplot() +
   geom_sf(data = pts, color = "blue", size = 5) +
@@ -128,17 +132,14 @@ within a street network, the following commands can be used:
 
 ``` r
 library(dodgr)
-#> Warning: package 'dodgr' was built under R version 4.3.3
 
 # Use the hampi streetnet as example:
 graph <- weight_streetnet(dodgr::hampi, wt_profile = "foot")
 
 # Calculate closeness:
 result <- st_closeness_centrality(graph)
-#> Input 'data' is a dodgr_streetnet graph. Calculating closeness for all its vertices.
-#> Warning in max(input_graph$component_rank): no non-missing arguments to max;
-#> returning -Inf
-#> Using the largest connected component of the graph (containing -Inf vertices).
+#> Input 'data' is a dodgr_streetnet graph. Calculating closeness for all vertices.
+#> Using largest connected component (2270 vertices).
 #> Starting distance calculation.
 #> Number of elements (2270) is within 'batched_if' (1e+05). Calculating all-pairs distances.
 #> Distance calculation finished.
@@ -181,11 +182,10 @@ sf::st_crs(pts) <- "EPSG:4326"
 
 # Calculate closeness centrality:
 pts_centrality_with_graph <- st_closeness_centrality(pts, graph = graph)
-#> Input 'data' is an sf object, and a 'graph' is supplied. Using the supplied graph.
-#> Warning in max(input_graph$component_rank): no non-missing arguments to max;
-#> returning -Inf
-#> Using the largest connected component of the graph (containing -Inf vertices).
-#> Using row numbers as temporary identifiers for sf points.
+#> Input 'data' is an sf object.
+#> Using supplied 'graph' for calculations.
+#> Using largest connected component (2270 vertices).
+#> Assigned row numbers as temporary identifiers for sf points.
 #> Starting distance calculation.
 #> Number of elements (3) is within 'batched_if' (1e+05). Calculating all-pairs distances.
 #> Distance calculation finished.
@@ -216,59 +216,57 @@ graph <- weight_streetnet(dodgr::hampi, wt_profile = "foot")
 
 # Calculate closeness: Use batched calculation even for small graphs.
 result <- st_closeness_centrality(graph, batched_if = 50)
-#> Input 'data' is a dodgr_streetnet graph. Calculating closeness for all its vertices.
-#> Warning in max(input_graph$component_rank): no non-missing arguments to max;
-#> returning -Inf
-#> Using the largest connected component of the graph (containing -Inf vertices).
+#> Input 'data' is a dodgr_streetnet graph. Calculating closeness for all vertices.
+#> Using largest connected component (2270 vertices).
 #> Starting distance calculation.
 #> Number of elements (2270) exceeds 'batched_if' (50). Calculating distances in batches.
-#> Starting batched calculation for 2270 nodes with a chunk size of 50.
-#>   Processing chunk: nodes 1 to 50 out of 2270.
-#>   Processing chunk: nodes 51 to 100 out of 2270.
-#>   Processing chunk: nodes 101 to 150 out of 2270.
-#>   Processing chunk: nodes 151 to 200 out of 2270.
-#>   Processing chunk: nodes 201 to 250 out of 2270.
-#>   Processing chunk: nodes 251 to 300 out of 2270.
-#>   Processing chunk: nodes 301 to 350 out of 2270.
-#>   Processing chunk: nodes 351 to 400 out of 2270.
-#>   Processing chunk: nodes 401 to 450 out of 2270.
-#>   Processing chunk: nodes 451 to 500 out of 2270.
-#>   Processing chunk: nodes 501 to 550 out of 2270.
-#>   Processing chunk: nodes 551 to 600 out of 2270.
-#>   Processing chunk: nodes 601 to 650 out of 2270.
-#>   Processing chunk: nodes 651 to 700 out of 2270.
-#>   Processing chunk: nodes 701 to 750 out of 2270.
-#>   Processing chunk: nodes 751 to 800 out of 2270.
-#>   Processing chunk: nodes 801 to 850 out of 2270.
-#>   Processing chunk: nodes 851 to 900 out of 2270.
-#>   Processing chunk: nodes 901 to 950 out of 2270.
-#>   Processing chunk: nodes 951 to 1000 out of 2270.
-#>   Processing chunk: nodes 1001 to 1050 out of 2270.
-#>   Processing chunk: nodes 1051 to 1100 out of 2270.
-#>   Processing chunk: nodes 1101 to 1150 out of 2270.
-#>   Processing chunk: nodes 1151 to 1200 out of 2270.
-#>   Processing chunk: nodes 1201 to 1250 out of 2270.
-#>   Processing chunk: nodes 1251 to 1300 out of 2270.
-#>   Processing chunk: nodes 1301 to 1350 out of 2270.
-#>   Processing chunk: nodes 1351 to 1400 out of 2270.
-#>   Processing chunk: nodes 1401 to 1450 out of 2270.
-#>   Processing chunk: nodes 1451 to 1500 out of 2270.
-#>   Processing chunk: nodes 1501 to 1550 out of 2270.
-#>   Processing chunk: nodes 1551 to 1600 out of 2270.
-#>   Processing chunk: nodes 1601 to 1650 out of 2270.
-#>   Processing chunk: nodes 1651 to 1700 out of 2270.
-#>   Processing chunk: nodes 1701 to 1750 out of 2270.
-#>   Processing chunk: nodes 1751 to 1800 out of 2270.
-#>   Processing chunk: nodes 1801 to 1850 out of 2270.
-#>   Processing chunk: nodes 1851 to 1900 out of 2270.
-#>   Processing chunk: nodes 1901 to 1950 out of 2270.
-#>   Processing chunk: nodes 1951 to 2000 out of 2270.
-#>   Processing chunk: nodes 2001 to 2050 out of 2270.
-#>   Processing chunk: nodes 2051 to 2100 out of 2270.
-#>   Processing chunk: nodes 2101 to 2150 out of 2270.
-#>   Processing chunk: nodes 2151 to 2200 out of 2270.
-#>   Processing chunk: nodes 2201 to 2250 out of 2270.
-#>   Processing chunk: nodes 2251 to 2270 out of 2270.
+#> Starting batched calculation for 2270 nodes with chunk size of 50.
+#>   Processing chunk: nodes 1 to 50 of 2270.
+#>   Processing chunk: nodes 51 to 100 of 2270.
+#>   Processing chunk: nodes 101 to 150 of 2270.
+#>   Processing chunk: nodes 151 to 200 of 2270.
+#>   Processing chunk: nodes 201 to 250 of 2270.
+#>   Processing chunk: nodes 251 to 300 of 2270.
+#>   Processing chunk: nodes 301 to 350 of 2270.
+#>   Processing chunk: nodes 351 to 400 of 2270.
+#>   Processing chunk: nodes 401 to 450 of 2270.
+#>   Processing chunk: nodes 451 to 500 of 2270.
+#>   Processing chunk: nodes 501 to 550 of 2270.
+#>   Processing chunk: nodes 551 to 600 of 2270.
+#>   Processing chunk: nodes 601 to 650 of 2270.
+#>   Processing chunk: nodes 651 to 700 of 2270.
+#>   Processing chunk: nodes 701 to 750 of 2270.
+#>   Processing chunk: nodes 751 to 800 of 2270.
+#>   Processing chunk: nodes 801 to 850 of 2270.
+#>   Processing chunk: nodes 851 to 900 of 2270.
+#>   Processing chunk: nodes 901 to 950 of 2270.
+#>   Processing chunk: nodes 951 to 1000 of 2270.
+#>   Processing chunk: nodes 1001 to 1050 of 2270.
+#>   Processing chunk: nodes 1051 to 1100 of 2270.
+#>   Processing chunk: nodes 1101 to 1150 of 2270.
+#>   Processing chunk: nodes 1151 to 1200 of 2270.
+#>   Processing chunk: nodes 1201 to 1250 of 2270.
+#>   Processing chunk: nodes 1251 to 1300 of 2270.
+#>   Processing chunk: nodes 1301 to 1350 of 2270.
+#>   Processing chunk: nodes 1351 to 1400 of 2270.
+#>   Processing chunk: nodes 1401 to 1450 of 2270.
+#>   Processing chunk: nodes 1451 to 1500 of 2270.
+#>   Processing chunk: nodes 1501 to 1550 of 2270.
+#>   Processing chunk: nodes 1551 to 1600 of 2270.
+#>   Processing chunk: nodes 1601 to 1650 of 2270.
+#>   Processing chunk: nodes 1651 to 1700 of 2270.
+#>   Processing chunk: nodes 1701 to 1750 of 2270.
+#>   Processing chunk: nodes 1751 to 1800 of 2270.
+#>   Processing chunk: nodes 1801 to 1850 of 2270.
+#>   Processing chunk: nodes 1851 to 1900 of 2270.
+#>   Processing chunk: nodes 1901 to 1950 of 2270.
+#>   Processing chunk: nodes 1951 to 2000 of 2270.
+#>   Processing chunk: nodes 2001 to 2050 of 2270.
+#>   Processing chunk: nodes 2051 to 2100 of 2270.
+#>   Processing chunk: nodes 2101 to 2150 of 2270.
+#>   Processing chunk: nodes 2151 to 2200 of 2270.
+#>   Processing chunk: nodes 2201 to 2250 of 2270.
+#>   Processing chunk: nodes 2251 to 2270 of 2270.
 #> Batched calculation finished.
 #> Distance calculation finished.
 #> Returning graph vertices with calculated closeness.
@@ -279,3 +277,50 @@ ggplot() +
 ```
 
 <img src="man/figures/README-unnamed-chunk-8-1.png" width="100%" />
+
+For certain networks, a high closeness value might be calculated for
+points which are at the periphery of a network. This can happen because
+while points which are only reachable points which are not reachable at
+all have a ‘NA’ distance value and therefore do not enter the closeness
+calculation. To avoid this issue, points which can not be reached from a
+large number of other points in the network can be discharged from the
+calculation.
+
+``` r
+# Use the hampi streetnet as example:
+graph <- weight_streetnet(dodgr::hampi, wt_profile = "motorcar")
+
+# Calculate closeness:
+# Keep points that are reachable by at least 90% of other points in the network:
+result <- st_closeness_centrality(graph, threshold_reachable = 0.1)
+#> Input 'data' is a dodgr_streetnet graph. Calculating closeness for all vertices.
+#> Using largest connected component (665 vertices).
+#> Starting distance calculation.
+#> Number of elements (665) is within 'batched_if' (1e+05). Calculating all-pairs distances.
+#> Distance calculation finished.
+#> Returning graph vertices with calculated closeness.
+
+# Depict results:
+ggplot() +
+  geom_sf(data = result, aes(color = closeness))
+```
+
+<img src="man/figures/README-unnamed-chunk-9-1.png" width="100%" />
+
+``` r
+
+# Calculate closeness: Only keep points that are reachable from everywhere in the network
+result <- st_closeness_centrality(graph, threshold_reachable = 1)
+#> Input 'data' is a dodgr_streetnet graph. Calculating closeness for all vertices.
+#> Using largest connected component (665 vertices).
+#> Starting distance calculation.
+#> Number of elements (665) is within 'batched_if' (1e+05). Calculating all-pairs distances.
+#> Distance calculation finished.
+#> Returning graph vertices with calculated closeness.
+
+# Depict results:
+ggplot() +
+  geom_sf(data = result, aes(color = closeness))
+```
+
+<img src="man/figures/README-unnamed-chunk-9-2.png" width="100%" />

@@ -154,4 +154,27 @@ ggplot() +
   geom_sf(data = result, aes(color = closeness))
 ```
 
+For certain networks, a high closeness value might be calculated for points which are at the periphery of a network. This can happen because while points which are only reachable 
+points which are not reachable at all have a 'NA' distance value and therefore do not enter the closeness calculation. 
+To avoid this issue, points which can not be reached from a large number of other points in the network can be discharged from the calculation. 
+```{r}
+# Use the hampi streetnet as example:
+graph <- weight_streetnet(dodgr::hampi, wt_profile = "motorcar")
+
+# Calculate closeness:
+# Keep points that are reachable by at least 90% of other points in the network:
+result <- st_closeness_centrality(graph, threshold_reachable = 0.1)
+
+# Depict results:
+ggplot() +
+  geom_sf(data = result, aes(color = closeness))
+
+# Calculate closeness: Only keep points that are reachable from everywhere in the network
+result <- st_closeness_centrality(graph, threshold_reachable = 1)
+
+# Depict results:
+ggplot() +
+  geom_sf(data = result, aes(color = closeness))
+```
+
 

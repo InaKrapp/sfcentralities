@@ -2,13 +2,14 @@
 % Please edit documentation in R/st_closeness_centrality.R
 \name{st_closeness_centrality_largedata}
 \alias{st_closeness_centrality_largedata}
-\title{A function to find closeness centrality in large dodgr graphs using batch processing}
+\title{Calculate Closeness Centrality for Large Networks Using Batch Processing}
 \usage{
 st_closeness_centrality_largedata(
   graph,
   from_points = NULL,
-  normalized,
-  chunk_size = 1000
+  normalized = TRUE,
+  chunk_size = 1000,
+  threshold_reachable = 0.9
 )
 }
 \arguments{
@@ -25,14 +26,19 @@ from an `sf` object in `st_closeness_centrality`.}
 
 \item{chunk_size}{The number of vertices/points for which distances should be calculated
 at once in each iteration. Defaults to `1000`. This directly controls memory usage.}
+
+\item{threshold_reachable}{A numeric value between 0 and 1. Defines the tolerance
+for filtering points based on reachability. Points with NA counts above this
+quantile threshold are removed. Default is 0.9.}
 }
 \value{
 A list containing:
-  - `closeness_values`: A numeric vector of closeness values, one for each
-    vertex/point from which distances were calculated. These values are named
-    with the corresponding IDs (row numbers or graph vertex IDs).
-  - `nodes_to_filter_ids`: A character vector of node/point IDs that should be filtered
-    out because they are less reachable than average.
+  \itemize{
+    \item `closeness_values`: A named numeric vector of closeness values, one for each
+      vertex/point from which distances were calculated.
+    \item `nodes_to_filter_ids`: A character vector of node/point IDs that should be
+      filtered out due to low reachability.
+  }
 }
 \description{
 This helper function calculates closeness centrality for each vertex in a large
@@ -48,24 +54,29 @@ library(sf)
 graph_hampi <- dodgr::weight_streetnet(hampi, wt_profile = "foot")
 
 # Example 1: Calculate closeness for all graph vertices using batch processing
-closeness_values_batched_graph <- st_closeness_centrality_largedata(graph_hampi,
-  normalized = TRUE, chunk_size = 50
+closeness_result <- st_closeness_centrality_largedata(
+  graph_hampi,
+  normalized = TRUE,
+  chunk_size = 50
 )
-head(closeness_values_batched_graph$closeness_values)
+head(closeness_result$closeness_values)
 
-# Example 2: Calculate closeness from specific points to graph vertices using batch processing
-pts <- sf::st_sfc(sf::st_point(c(76.47398, 15.330)), sf::st_point(c(76.47398, 15.150)))
+# Example 2: Calculate closeness from specific points using batch processing
+pts <- sf::st_sfc(
+  sf::st_point(c(76.47398, 15.330)),
+  sf::st_point(c(76.47398, 15.150))
+)
 pts <- sf::st_as_sf(pts)
 sf::st_crs(pts) <- "EPSG:4326"
 pts_df <- as.data.frame(sf::st_coordinates(pts))
 names(pts_df) <- c("x", "y")
-pts_df$id <- as.character(seq_len(nrow(pts_df))) # Use row numbers as IDs
+pts_df$id <- as.character(seq_len(nrow(pts_df)))
 
-closeness_values_batched_points <- st_closeness_centrality_largedata(
+closeness_result_pts <- st_closeness_centrality_largedata(
   graph = graph_hampi,
   from_points = pts_df,
   normalized = TRUE,
-  chunk_size = 1 # Small chunk_size for example
+  chunk_size = 1
 )
-head(closeness_values_batched_points$closeness_values)
+head(closeness_result_pts$closeness_values)
 }

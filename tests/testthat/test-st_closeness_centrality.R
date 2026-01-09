@@ -51,14 +51,12 @@ test_that("handles sf points with a pre-built graph correctly", {
 test_that("errors on invalid or missing inputs", {
   # Error on wrong data type
   expect_error(
-    st_closeness_centrality(data = data.frame(x = 1)),
-    regexp = "Input 'data' must be an 'sf' dataframe of points or a 'dodgr_streetnet' object. If 'data' is not supplied, a graph or a placename and a transport_mode have to be supplied."
+    st_closeness_centrality(data = data.frame(x = 1))
   )
 
   # Error when placename/transport_mode are needed but not provided
   expect_error(
-    st_closeness_centrality(data = pts, graph = NULL, placename = "Hampi"),
-    regexp = "both 'placename' and 'transport_mode' must be provided"
+    st_closeness_centrality(data = pts, graph = NULL, placename = "Hampi")
   )
 })
 

@@ -117,7 +117,6 @@ st_geo_median <- function(data, group = NULL, tol = 1e-07, maxiter = 200) {
     result_sf$reltol <- geomedian_list$reltol
     result_sf$niter <- geomedian_list$niter
     result_sf$number_of_points <- nrow(data)
-
   } else {
     # Apply geometric median function to subgroups in dataset
     groupcolumn <- data[, group, drop = FALSE]
