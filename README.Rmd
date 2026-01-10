@@ -134,7 +134,7 @@ pts_centrality_with_graph <- st_closeness_centrality(pts, graph = graph)
 
 # Depict results:
 ggplot() +
-  geom_sf(data = dodgr::hampi, color = "pink") +
+  geom_sf(data = dodgr::hampi, color = "deeppink") +
   geom_sf(data = pts_centrality_with_graph, aes(color = closeness))
 ```
 
