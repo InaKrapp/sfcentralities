@@ -26,8 +26,8 @@
 #'   it is the inverse of the sum of distances.
 #' @param threshold_reachable A numeric value between 0 and 1. Defines the tolerance
 #'   for filtering points based on reachability. Points with NA counts above this
-#'   quantile threshold are removed. Default is 0.9, meaning points reachable by
-#'   at least 90\% of the network are kept. Set to 1 to keep all points.
+#'   quantile threshold are removed. Default is 0.9, meaning points unreachable from more than 
+#'   90\% of nodes in the network are discarded. Set to 1 to keep all points.
 #'
 #' @return An `sf` dataframe of the input `data` points (or the graph vertices
 #'   if `data` was a `dodgr_streetnet`), with an additional column 'closeness'
@@ -181,7 +181,8 @@ st_closeness_centrality <- function(data = NULL,
 #'   at once in each iteration. Defaults to `1000`. This directly controls memory usage.
 #' @param threshold_reachable A numeric value between 0 and 1. Defines the tolerance
 #'   for filtering points based on reachability. Points with NA counts above this
-#'   quantile threshold are removed. Default is 0.9.
+#'   quantile threshold are removed. Default is 0.9, meaning points unreachable from more than 
+#'   90\% of nodes in the network are discarded. Set to 1 to keep all points.
 #'
 #' @return A list containing:
 #'   \itemize{
