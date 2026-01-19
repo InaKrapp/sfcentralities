@@ -19,7 +19,7 @@
 #'   `graph` is not supplied.
 #' @param batched_if An integer. If the number of vertices in the graph (or points in `data`)
 #'   exceeds this number, distance calculations will be performed in batches using
-#'   `st_closeness_centrality_largedata`. Set to `100000` by default. This value
+#'   `st_closeness_centrality_largedata`. Set to `10000` by default. This value
 #'   should be lowered if memory allocation errors occur.
 #' @param normalized A logical value. If `TRUE` (default), closeness is normalized
 #'   by the number of reachable nodes, representing the mean of distances. If `FALSE`,
@@ -76,7 +76,7 @@ st_closeness_centrality <- function(data = NULL,
                                     graph = NULL,
                                     placename = NULL,
                                     transport_mode = NULL,
-                                    batched_if = 100000,
+                                    batched_if = 10000,
                                     normalized = TRUE,
                                     threshold_reachable = 0.9) {
   # --- Input Validation ---
