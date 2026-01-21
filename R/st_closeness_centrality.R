@@ -26,7 +26,7 @@
 #'   it is the inverse of the sum of distances.
 #' @param threshold_reachable A numeric value between 0 and 1. Defines the tolerance
 #'   for filtering points based on reachability. Points with NA counts above this
-#'   quantile threshold are removed. Default is 0.9, meaning points unreachable from more than 
+#'   quantile threshold are removed. Default is 0.9, meaning points unreachable from more than
 #'   90\% of nodes in the network are discarded. Set to 1 to keep all points.
 #'
 #' @return An `sf` dataframe of the input `data` points (or the graph vertices
@@ -181,7 +181,7 @@ st_closeness_centrality <- function(data = NULL,
 #'   at once in each iteration. Defaults to `1000`. This directly controls memory usage.
 #' @param threshold_reachable A numeric value between 0 and 1. Defines the tolerance
 #'   for filtering points based on reachability. Points with NA counts above this
-#'   quantile threshold are removed. Default is 0.9, meaning points unreachable from more than 
+#'   quantile threshold are removed. Default is 0.9, meaning points unreachable from more than
 #'   90\% of nodes in the network are discarded. Set to 1 to keep all points.
 #'
 #' @return A list containing:
@@ -285,7 +285,8 @@ st_closeness_centrality_largedata <- function(graph,
     # Calculate distances for current chunk
     distance_matrix_chunk <- dodgr::dodgr_dists(
       graph = graph,
-      from = current_chunk
+      from = current_chunk,
+      to = current_chunk
     )
 
     # Track NA counts for reachability filtering
@@ -501,7 +502,7 @@ st_closeness_centrality_largedata <- function(graph,
 .calculate_closeness_direct <- function(graph, from_points, normalized, threshold_reachable) {
   # Calculate distance matrix
   if (!is.null(from_points)) {
-    distance_matrix <- dodgr::dodgr_dists(graph = graph, from = from_points)
+    distance_matrix <- dodgr::dodgr_dists(graph = graph, from = from_points, to = from_points)
   } else {
     distance_matrix <- dodgr::dodgr_dists(graph = graph)
   }

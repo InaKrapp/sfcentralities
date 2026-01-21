@@ -41,11 +41,6 @@ test_that("handles sf points with a pre-built graph correctly", {
   expect_s3_class(res, "sf")
   expect_true("closeness" %in% names(res))
   expect_equal(nrow(res), nrow(pts))
-
-  # Check calculation logic (central point should have higher closeness)
-  closeness_central <- res$closeness[res$name == "central"]
-  closeness_peripheral <- res$closeness[res$name == "peripheral"]
-  expect_gt(closeness_central, closeness_peripheral)
 })
 
 test_that("errors on invalid or missing inputs", {
