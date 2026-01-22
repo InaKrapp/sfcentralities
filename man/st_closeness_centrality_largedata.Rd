@@ -29,7 +29,8 @@ at once in each iteration. Defaults to `1000`. This directly controls memory usa
 
 \item{threshold_reachable}{A numeric value between 0 and 1. Defines the tolerance
 for filtering points based on reachability. Points with NA counts above this
-quantile threshold are removed. Default is 0.9.}
+quantile threshold are removed. Default is 0.9, meaning points unreachable from more than
+90\% of nodes in the network are discarded. Set to 1 to keep all points.}
 }
 \value{
 A list containing:

@@ -286,7 +286,7 @@ st_closeness_centrality_largedata <- function(graph,
     distance_matrix_chunk <- dodgr::dodgr_dists(
       graph = graph,
       from = current_chunk,
-      to = current_chunk
+      to = from_points
     )
 
     # Track NA counts for reachability filtering

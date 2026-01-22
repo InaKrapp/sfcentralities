@@ -9,7 +9,7 @@ st_closeness_centrality(
   graph = NULL,
   placename = NULL,
   transport_mode = NULL,
-  batched_if = 1e+05,
+  batched_if = 10000,
   normalized = TRUE,
   threshold_reachable = 0.9
 )
@@ -35,7 +35,7 @@ an `sf` object and `graph` is not supplied.}
 
 \item{batched_if}{An integer. If the number of vertices in the graph (or points in `data`)
 exceeds this number, distance calculations will be performed in batches using
-`st_closeness_centrality_largedata`. Set to `100000` by default. This value
+`st_closeness_centrality_largedata`. Set to `10000` by default. This value
 should be lowered if memory allocation errors occur.}
 
 \item{normalized}{A logical value. If `TRUE` (default), closeness is normalized
@@ -44,8 +44,8 @@ it is the inverse of the sum of distances.}
 
 \item{threshold_reachable}{A numeric value between 0 and 1. Defines the tolerance
 for filtering points based on reachability. Points with NA counts above this
-quantile threshold are removed. Default is 0.9, meaning points reachable by
-at least 90\% of the network are kept. Set to 1 to keep all points.}
+quantile threshold are removed. Default is 0.9, meaning points unreachable from more than
+90\% of nodes in the network are discarded. Set to 1 to keep all points.}
 }
 \value{
 An `sf` dataframe of the input `data` points (or the graph vertices
